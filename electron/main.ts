@@ -3,12 +3,18 @@
 import path from 'path'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import started from 'electron-squirrel-startup'
+import { updateElectronApp } from 'update-electron-app'
 
 import { executeCode, type ExecuteCodeRequest } from '../lib/coderunner'
 
 if (started) {
   app.quit()
 }
+
+updateElectronApp({
+  repo: 'roberthgnz/js-blitz',
+  updateInterval: '1 day',
+})
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string
 declare const MAIN_WINDOW_VITE_NAME: string
