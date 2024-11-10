@@ -1,0 +1,32 @@
+{
+    "endOfLine": "lf",
+    "semi": false,
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "importOrder": [
+        "^(vue/(.*)$)|^(vue$)",
+        "<THIRD_PARTY_MODULES>",
+        "",
+        "^types$",
+        "^~/types/(.*)$",
+        "^~/server/(.*)$",
+        "",
+        "^~/config/(.*)$",
+        "^~/utils/(.*)$",
+        "",
+        "^~/store/(.*)$",
+        "",
+        "^~/services/(.*)$",
+        "",
+        "^~/composables/(.*)$",
+        "",
+        "^~/components/(.*)$",
+        "^~/plugins/(.*)$",
+        "",
+        "^[./]"
+    ],
+    "plugins": [
+        "@ianvs/prettier-plugin-sort-imports"
+    ]
+}
