@@ -3,7 +3,7 @@ export const initPackageJson = async (directory: string, options: any) => {
   return fs.writeFile(
     `${directory}/package.json`,
     JSON.stringify(
-      { name: 'js-blitz', version: '1.0.0', private: true, ...options },
+      { name: 'js-blitz', version: '0.0.0', private: true, ...options },
       null,
       2
     )
