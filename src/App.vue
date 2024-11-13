@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useMonaco, type EditorProps } from '@guolao/vue-monaco-editor'
+// @ts-ignore
+import * as NodeTypes from '@types/node/index.d.ts?raw'
 import { useElementSize, useStorage } from '@vueuse/core'
 // @ts-ignore
 import { Pane, Splitpanes } from 'splitpanes'
@@ -8,6 +10,7 @@ import { Pane, Splitpanes } from 'splitpanes'
 import DraculaTheme from '../vs-themes/dracula.json'
 import ClearIcon from './components/icons/Clear.vue'
 import RunIcon from './components/icons/Run.vue'
+import WindowControls from './components/WindowControls.vue'
 import { getPackages } from './lib/packages'
 
 const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
@@ -50,8 +53,11 @@ const statusBarBackground = computed(() => {
 const statusBarForeground = computed(() => {
   return getThemeColor('statusBar.foreground')
 })
-const tabHoverBackground = computed(() => {
-  return getThemeColor('tab.hoverBackground')
+const buttonSecondaryForeground = computed(() => {
+  return getThemeColor('button.secondaryForeground')
+})
+const buttonSecondaryHoverBackground = computed(() => {
+  return getThemeColor('button.secondaryHoverBackground')
 })
 
 const { monacoRef } = useMonaco()
@@ -206,63 +212,72 @@ const handleResize = (event: any[]) => {
 </script>
 
 <template>
-  <Splitpanes @resize="handleResize">
-    <Pane :min-size="10" :size="panelSizesStorage[0]">
-      <div
-        ref="topBar"
-        class="flex items-center justify-end"
-        :style="{ backgroundColor: statusBarBackground }"
+  <WindowControls
+    ref="topBar"
+    :style="{
+      backgroundColor: statusBarBackground,
+      '--buttonSecondaryForeground': buttonSecondaryForeground,
+      '--buttonSecondaryHoverBackground': buttonSecondaryHoverBackground,
+    }"
+  />
+  <div
+    class="relative size-full grid grid-cols-[32px_auto]"
+    :style="{
+      height: `calc(100% - ${height})`,
+    }"
+  >
+    <div
+      class="size-full flex flex-col items-center"
+      :style="{ backgroundColor: statusBarBackground }"
+    >
+      <button
+        type="button"
+        class="p-2 select-none"
+        title="Run code (CtrlCmd + Enter)"
+        @click="executeCode"
       >
-        <button
-          type="button"
-          class="p-1 select-none"
-          title="Run code (CtrlCmd + Enter)"
-          @click="executeCode"
-        >
-          <RunIcon class="size-4" />
-        </button>
-      </div>
-      <div class="scrolls">
-        <VueMonacoEditor
-          v-model:value="code"
-          theme="dracula"
-          language="typescript"
-          :options="MONACO_EDITOR_OPTIONS"
-          @mount="handleMount"
-        />
-      </div>
-    </Pane>
-    <Pane :min-size="10" :size="panelSizesStorage[1]">
-      <div
-        class="flex items-center justify-end"
-        :style="{ backgroundColor: statusBarBackground }"
+        <RunIcon class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="p-2 select-none"
+        title="Clear output"
+        @click="clearOutput"
       >
-        <button
-          type="button"
-          class="p-1 select-none"
-          title="Clear output"
-          @click="clearOutput"
-        >
-          <ClearIcon class="size-4" />
-        </button>
-      </div>
-      <div class="scrolls">
-        <pre
-          ref="outputElement"
-          class="output"
-          data-lang="text/typescript"
-        ></pre>
-      </div>
-    </Pane>
-  </Splitpanes>
+        <ClearIcon class="size-4" />
+      </button>
+    </div>
+    <Splitpanes @resize="handleResize">
+      <Pane :min-size="10" :size="panelSizesStorage[0]">
+        <div class="scrolls">
+          <VueMonacoEditor
+            v-model:value="code"
+            theme="dracula"
+            language="typescript"
+            :options="MONACO_EDITOR_OPTIONS"
+            @mount="handleMount"
+          />
+        </div>
+      </Pane>
+      <Pane :min-size="10" :size="panelSizesStorage[1]">
+        <div class="scrolls">
+          <pre
+            ref="outputElement"
+            class="output"
+            data-lang="text/typescript"
+          ></pre>
+        </div>
+      </Pane>
+    </Splitpanes>
+  </div>
 </template>
 
 <style>
 .splitpanes {
-  --height: v-bind(height);
   position: relative;
   display: flex;
-  height: calc(100% - var(--height));
+  width: 100%;
+  height: 100%;
 }
 
 .splitpanes.loading .splitpanes__pane {
@@ -301,11 +316,12 @@ const handleResize = (event: any[]) => {
 
 button {
   color: v-bind(statusBarForeground);
+  transition: background-color 0.2s;
 }
 
 button:hover {
   color: v-bind(statusBarForeground);
-  background-color: v-bind(tabHoverBackground);
+  background-color: v-bind(buttonSecondaryHoverBackground);
 }
 
 ::-webkit-scrollbar {
