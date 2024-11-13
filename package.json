@@ -1,7 +1,7 @@
 {
   "name": "js-blitz",
   "productName": "js-blitz",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Run JavaScript code in a flash",
   "main": ".vite/build/main.js",
   "scripts": {
