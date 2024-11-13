@@ -21,9 +21,19 @@ const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
   },
 }
 
-const code = ref(
+const DEFAULT_CODE =
   '// Write your TypeScript/JavaScript code here\nconsole.log("Hello World!");'
+
+const inputCodeStorage = useStorage(
+  'js-blitz-input-code',
+  DEFAULT_CODE,
+  localStorage,
+  {
+    listenToStorageChanges: false,
+  }
 )
+
+const code = ref(inputCodeStorage.value || DEFAULT_CODE)
 const editorRef = shallowRef()
 
 const getThemeColor = (color: string) => {
@@ -72,11 +82,25 @@ const getMonacoThemeData = (themeDefinition: any) => {
 
 const handleMount = (editor: any) => {
   editorRef.value = editor
+
+  /**
+   * COMMANDS SETUP
+   */
   editorRef.value.addCommand(
     monacoRef.value.KeyMod.CtrlCmd | monacoRef.value.KeyCode.Enter,
     executeCode
   )
 
+  /**
+   * LISTENERS
+   */
+  editorRef.value?.onDidChangeModelContent(() => {
+    inputCodeStorage.value = editorRef.value?.getValue() || ''
+  })
+
+  /**
+   * LANGUAGE CONFIGURATION
+   */
   monacoRef.value.languages.typescript.typescriptDefaults.setCompilerOptions({
     noImplicitAny: false,
     allowJs: true,
@@ -89,6 +113,9 @@ const handleMount = (editor: any) => {
     inlineSourceMap: true,
   })
 
+  /**
+   * THEME CONFIGURATION
+   */
   monacoRef.value.editor.defineTheme(
     'dracula',
     getMonacoThemeData(DraculaTheme)
@@ -162,22 +189,23 @@ const { height: v } = useElementSize(topBar, undefined, { box: 'border-box' })
 
 const height = computed(() => `${v.value}px`)
 
-const panelSizes = useStorage('js-blitz-panel-sizes', [60, 40], localStorage, {
-  listenToStorageChanges: false,
-})
+const panelSizesStorage = useStorage(
+  'js-blitz-panel-sizes',
+  [60, 40],
+  localStorage,
+  {
+    listenToStorageChanges: false,
+  }
+)
 
 const handleResize = (event: any[]) => {
-  panelSizes.value = event.map(({ size }) => size)
+  panelSizesStorage.value = event.map(({ size }) => size)
 }
-
-window.electronAPI.onInstallingPackages((data) => {
-  console.log(`Installing packages: ${data}`)
-})
 </script>
 
 <template>
   <Splitpanes @resize="handleResize">
-    <Pane :min-size="10" :size="panelSizes[0]">
+    <Pane :min-size="10" :size="panelSizesStorage[0]">
       <div
         ref="topBar"
         class="flex items-center justify-end"
@@ -207,7 +235,7 @@ window.electronAPI.onInstallingPackages((data) => {
         </VueMonacoEditor>
       </div>
     </Pane>
-    <Pane :min-size="10" :size="panelSizes[1]">
+    <Pane :min-size="10" :size="panelSizesStorage[1]">
       <div
         class="flex items-center justify-end"
         :style="{ backgroundColor: statusBarBackground }"
