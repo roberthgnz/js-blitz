@@ -26,11 +26,11 @@ export async function executeCode(
 ): Promise<ExecuteResponse> {
   const { code, packages = [] } = request
 
-  const rootPath = app.isPackaged
+  const userDataPath = app.isPackaged
     ? path.resolve(app.getPath('userData'))
-    : path.resolve(__dirname, '../../')
+    : path.resolve(__dirname, '..', '..', 'temp')
 
-  const projectPath = path.join(rootPath, 'js-blitz')
+  const projectPath = path.join(userDataPath, 'project')
 
   try {
     const exists = await fs
