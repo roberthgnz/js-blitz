@@ -8,13 +8,16 @@ declare global {
   interface Window {
     electronAPI: {
       executeCode: (request: ExecuteCodeRequest) => Promise<ExecuteResponse>
-      onInstallingPackages: (callback: (packages: string[]) => void) => void
+      minimizeWindow: () => void
+      maximizeWindow: () => void
+      closeWindow: () => void
     }
   }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
   executeCode: (code: string) => ipcRenderer.invoke('execute-code', code),
-  onInstallingPackages: (callback: (packages: string[]) => void) =>
-    ipcRenderer.on('installing-packages', (_, packages) => callback(packages)),
+  minimizeWindow: () => ipcRenderer.send('minimize-window'),
+  maximizeWindow: () => ipcRenderer.send('maximize-window'),
+  closeWindow: () => ipcRenderer.send('close-window'),
 })

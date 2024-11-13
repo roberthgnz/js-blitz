@@ -55,7 +55,7 @@ const createWindow = async () => {
   const state = await loadWindowState()
 
   const mainWindow = new BrowserWindow({
-    // frame: false,
+    frame: false,
     width: state.width,
     height: state.height,
     x: state.x,
@@ -94,6 +94,23 @@ ipcMain.handle('execute-code', async (_, request: ExecuteCodeRequest) => {
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
   }
+})
+
+ipcMain.on('minimize-window', () => {
+  BrowserWindow.getFocusedWindow()?.minimize()
+})
+
+ipcMain.on('maximize-window', () => {
+  const win = BrowserWindow.getFocusedWindow()
+  if (win?.isMaximized()) {
+    win.unmaximize()
+  } else {
+    win?.maximize()
+  }
+})
+
+ipcMain.on('close-window', () => {
+  BrowserWindow.getFocusedWindow()?.close()
 })
 
 app.on('ready', createWindow)
