@@ -90,4 +90,6 @@ typings/
 
 # Build directory and temp files
 out/
-temp/
+temp/*.json
+temp/*.log
+temp/project/
