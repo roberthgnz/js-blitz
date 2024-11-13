@@ -6,10 +6,10 @@ import { ipcRenderer } from 'electron'
 // @ts-ignore
 import { Pane, Splitpanes } from 'splitpanes'
 
-import { getPackages } from '../lib/packages'
 import DraculaTheme from '../vs-themes/dracula.json'
 import ClearIcon from './components/icons/Clear.vue'
 import RunIcon from './components/icons/Run.vue'
+import { getPackages } from './lib/packages'
 
 const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
   theme: 'vs-dark',

@@ -7,7 +7,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import started from 'electron-squirrel-startup'
 import { updateElectronApp } from 'update-electron-app'
 
-import { executeCode, type ExecuteCodeRequest } from '../lib/coderunner'
+import { executeCode, type ExecuteCodeRequest } from './lib/coderunner'
 
 if (started) {
   app.quit()
