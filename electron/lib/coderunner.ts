@@ -2,7 +2,7 @@ import { exec } from 'child_process'
 import fs from 'fs/promises'
 import path from 'path'
 import { installPackage } from '@antfu/install-pkg'
-import { app, ipcMain } from 'electron'
+import { app } from 'electron'
 
 import { initPackageJson, isPackageInstalled } from './packages'
 
@@ -48,7 +48,6 @@ export async function executeCode(
     })
 
     if (packages.length > 0) {
-      ipcMain.emit('installing-packages', packages)
       for await (const packageName of packages) {
         const isInstalled = await isPackageInstalled(packageName, projectPath)
         if (!isInstalled) {
