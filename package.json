@@ -9,10 +9,7 @@
     "dev": "electron-forge start -- --dev",
     "package": "rimraf out && electron-forge package",
     "make": "rimraf out && electron-forge make",
-    "lint": "eslint --ext .ts,.tsx .",
     "publish": "electron-forge publish",
-    "prepublishOnly": "pnpm lint",
-    "preversion": "pnpm lint",
     "version": "git add -A src",
     "postversion": "git push && git push --tags"
   },
