@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { useMonaco, type EditorProps } from '@guolao/vue-monaco-editor'
 import { useElementSize, useStorage } from '@vueuse/core'
-import { ipcRenderer } from 'electron'
 // @ts-ignore
 import { Pane, Splitpanes } from 'splitpanes'
 
@@ -12,7 +11,6 @@ import RunIcon from './components/icons/Run.vue'
 import { getPackages } from './lib/packages'
 
 const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
-  theme: 'vs-dark',
   automaticLayout: true,
   formatOnType: true,
   formatOnPaste: true,
@@ -84,33 +82,10 @@ const handleMount = (editor: any) => {
   editorRef.value = editor
 
   /**
-   * COMMANDS SETUP
-   */
-  editorRef.value.addCommand(
-    monacoRef.value.KeyMod.CtrlCmd | monacoRef.value.KeyCode.Enter,
-    executeCode
-  )
-
-  /**
    * LISTENERS
    */
   editorRef.value?.onDidChangeModelContent(() => {
     inputCodeStorage.value = editorRef.value?.getValue() || ''
-  })
-
-  /**
-   * LANGUAGE CONFIGURATION
-   */
-  monacoRef.value.languages.typescript.typescriptDefaults.setCompilerOptions({
-    noImplicitAny: false,
-    allowJs: true,
-    skipLibCheck: true,
-    target: monacoRef.value.languages.typescript.ScriptTarget.ESNext,
-    module: monacoRef.value.languages.typescript.ModuleKind.ESNext,
-    moduleResolution:
-      monacoRef.value.languages.typescript.ModuleResolutionKind.NodeJs,
-    allowNonTsExtensions: true,
-    inlineSourceMap: true,
   })
 
   /**
@@ -123,23 +98,47 @@ const handleMount = (editor: any) => {
   monacoRef.value.editor.setTheme('dracula')
 }
 
-const outputElement = ref(null)
+const outputElement = ref<HTMLElement | null>(null)
 
 const originalConsole = { ...console }
 
 console.log = function (...args) {
   originalConsole.log(...args)
-  if (!outputElement.value) return
-  outputElement.value.innerHTML +=
+
+  if (!outputElement.value || !(outputElement.value instanceof HTMLElement))
+    return
+
+  const formattedOutput =
     args
       .map((arg) => {
         if (typeof arg === 'object') {
-          return JSON.stringify(arg, null, 2)
+          try {
+            return JSON.stringify(arg, null, 2)
+          } catch (e) {
+            return '[Circular]'
+          }
         }
         return String(arg)
       })
       .join(' ') + '\n'
+
+  outputElement.value.innerHTML += formattedOutput
 }
+
+watch(
+  () => [monacoRef.value, editorRef.value],
+  ([monaco, editor]) => {
+    if (!monaco || !editor) return
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, executeCode)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_EQUAL, () => {
+      editor.trigger('zoom', 'editor.action.fontZoomIn')
+    })
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_MINUS, () => {
+      editor.trigger('zoom', 'editor.action.fontZoomOut')
+    })
+  },
+  { immediate: true, deep: true }
+)
 
 const executeCode = async () => {
   try {
@@ -178,6 +177,9 @@ const runCode = async (code: string) => {
     console.log(`Error: ${error.message}`)
   } finally {
     console.timeEnd('runCode')
+    monacoRef.value.editor.colorizeElement(outputElement.value, {
+      theme: 'dracula',
+    })
   }
 }
 
@@ -223,16 +225,11 @@ const handleResize = (event: any[]) => {
       <div class="scrolls">
         <VueMonacoEditor
           v-model:value="code"
-          default-language="typescript"
+          theme="dracula"
+          language="typescript"
           :options="MONACO_EDITOR_OPTIONS"
           @mount="handleMount"
-        >
-          <template>
-            <div class="size-full grid place-content-center text-4xl">
-              Cargo.toml
-            </div>
-          </template>
-        </VueMonacoEditor>
+        />
       </div>
     </Pane>
     <Pane :min-size="10" :size="panelSizesStorage[1]">
@@ -250,7 +247,11 @@ const handleResize = (event: any[]) => {
         </button>
       </div>
       <div class="scrolls">
-        <div ref="outputElement" class="output"></div>
+        <pre
+          ref="outputElement"
+          class="output"
+          data-lang="text/typescript"
+        ></pre>
       </div>
     </Pane>
   </Splitpanes>
