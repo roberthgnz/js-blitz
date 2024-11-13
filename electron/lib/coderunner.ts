@@ -33,19 +33,19 @@ export async function executeCode(
   const projectPath = path.join(userDataPath, 'project')
 
   try {
+    const isECMA = isECMAImport(code)
+
     const exists = await fs
       .access(projectPath)
       .then(() => true)
       .catch(() => false)
     if (!exists) {
       await fs.mkdir(projectPath)
+
+      await initPackageJson(projectPath, {
+        type: isECMA ? 'module' : 'commonjs',
+      })
     }
-
-    const isECMA = isECMAImport(code)
-
-    await initPackageJson(projectPath, {
-      type: isECMA ? 'module' : 'commonjs',
-    })
 
     if (packages.length > 0) {
       ipcMain.emit('installing-packages', packages)
