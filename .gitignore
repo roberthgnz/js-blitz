@@ -88,6 +88,6 @@ typings/
 # Vite
 .vite/
 
-# Electron-Forge
+# Build directory and temp files
 out/
-js-blitz/
+temp/

@@ -1,9 +1,0 @@
-{
-  "name": "js-blitz",
-  "version": "1.0.0",
-  "private": true,
-  "type": "commonjs",
-  "dependencies": {
-    "is-even-is-odd": "^1.0.1"
-  }
-}
