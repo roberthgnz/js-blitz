@@ -38,6 +38,9 @@ importers:
       state-local:
         specifier: ^1.0.7
         version: 1.0.7
+      systeminformation:
+        specifier: ^5.23.5
+        version: 5.23.5
       update-electron-app:
         specifier: ^3.0.0
         version: 3.0.0
@@ -3077,6 +3080,12 @@ packages:
   synckit@0.9.2:
     resolution: {integrity: sha512-vrozgXDQwYO72vHjUb/HnFbQx1exDjoKzqx23aXEg2a9VIg2TSFZ8FmeZpTjUCFMYw7mpX4BE2SFu8wI7asYsw==}
     engines: {node: ^14.18.0 || >=16.0.0}
+
+  systeminformation@5.23.5:
+    resolution: {integrity: sha512-PEpJwhRYxZgBCAlWZhWIgfMTjXLqfcaZ1pJsJn9snWNfBW/Z1YQg1mbIUSWrEV3ErAHF7l/OoVLQeaZDlPzkpA==}
+    engines: {node: '>=8.0.0'}
+    os: [darwin, linux, win32, freebsd, openbsd, netbsd, sunos, android]
+    hasBin: true
 
   tailwindcss@3.4.14:
     resolution: {integrity: sha512-IcSvOcTRcUtQQ7ILQL5quRDg7Xs93PdJEk1ZLbhhvJc7uj/OAhYOnruEiwnGgBvUtaUAJ8/mhSw1o8L2jCiENA==}
@@ -6909,6 +6918,8 @@ snapshots:
     dependencies:
       '@pkgr/core': 0.1.1
       tslib: 2.8.1
+
+  systeminformation@5.23.5: {}
 
   tailwindcss@3.4.14(ts-node@10.9.2(@types/node@22.9.0)(typescript@4.5.5)):
     dependencies:

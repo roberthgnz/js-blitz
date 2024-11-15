@@ -62,6 +62,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "splitpanes": "^3.1.5",
     "state-local": "^1.0.7",
+    "systeminformation": "^5.23.5",
     "update-electron-app": "^3.0.0",
     "vue": "^3.5.12",
     "vue-demi": "^0.14.10",
