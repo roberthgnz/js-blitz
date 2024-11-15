@@ -1,10 +1,8 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-
-import fs from 'fs/promises'
+import fs from 'fs'
 import path from 'path'
 import { app, BrowserWindow, ipcMain } from 'electron'
-// @ts-ignore
 import started from 'electron-squirrel-startup'
+import si from 'systeminformation'
 import { updateElectronApp } from 'update-electron-app'
 
 import { executeCode, type ExecuteCodeRequest } from './lib/coderunner'
@@ -26,28 +24,119 @@ const stateFilePath = path.join(userDataPath, 'window-state.json')
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string
 declare const MAIN_WINDOW_VITE_NAME: string
 
+type WindowState = {
+  width: number
+  height: number
+  x: number
+  y: number
+}
+
+const defaultState: WindowState = {
+  width: 800,
+  height: 600,
+  x: undefined,
+  y: undefined,
+}
+
+const ensureWindowIsVisible = async (windowState: WindowState) => {
+  try {
+    const displays = await si.graphics()
+    const monitors = displays.displays
+
+    if (!monitors || monitors.length === 0) {
+      return defaultState
+    }
+
+    let minX = 0,
+      minY = 0,
+      maxX = 0,
+      maxY = 0
+    monitors.forEach((display) => {
+      const x = display.positionX
+      const y = display.positionY
+      const width = display.resolutionX
+      const height = display.resolutionY
+
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x + width)
+      maxY = Math.max(maxY, y + height)
+    })
+
+    windowState.width = Math.max(400, Math.min(windowState.width, maxX - minX))
+    windowState.height = Math.max(
+      300,
+      Math.min(windowState.height, maxY - minY)
+    )
+
+    let isWindowVisible = false
+    for (const display of monitors) {
+      const x = display.positionX
+      const y = display.positionY
+      const width = display.resolutionX
+      const height = display.resolutionY
+
+      if (
+        windowState.x >= x &&
+        windowState.y >= y &&
+        windowState.x + windowState.width <= x + width &&
+        windowState.y + windowState.height <= y + height
+      ) {
+        isWindowVisible = true
+        break
+      }
+    }
+
+    if (!isWindowVisible) {
+      const primaryDisplay = monitors[0]
+      const width = primaryDisplay.resolutionX
+      const height = primaryDisplay.resolutionY
+
+      windowState.x = Math.round((width - windowState.width) / 2)
+      windowState.y = Math.round((height - windowState.height) / 2)
+    }
+
+    return windowState
+  } catch (error) {
+    console.error(error)
+    return defaultState
+  }
+}
+
 const loadWindowState = async () => {
   try {
-    const content = await fs.readFile(stateFilePath, 'utf-8')
-    return JSON.parse(content)
+    let state = JSON.parse(fs.readFileSync(stateFilePath, 'utf8'))
+    state = { ...defaultState, ...state }
+    return await ensureWindowIsVisible(state)
   } catch (e) {
-    return {
-      width: 800,
-      height: 600,
-      x: undefined,
-      y: undefined,
+    try {
+      const displays = await si.graphics()
+      const primaryDisplay = displays.displays[0]
+      const width = primaryDisplay.resolutionX
+      const height = primaryDisplay.resolutionY
+
+      return {
+        ...defaultState,
+        x: Math.round((width - defaultState.width) / 2),
+        y: Math.round((height - defaultState.height) / 2),
+      }
+    } catch (error) {
+      console.error(error)
+      return defaultState
     }
   }
 }
 
 const saveWindowState = (window: BrowserWindow) => {
-  if (!window.isMaximized()) {
+  if (!window.isMaximized() && !window.isMinimized()) {
     const bounds = window.getBounds()
-    try {
-      fs.writeFile(stateFilePath, JSON.stringify(bounds))
-    } catch (e) {
-      console.error('Failed to save window state', e)
-    }
+    fs.writeFileSync(
+      stateFilePath,
+      JSON.stringify({
+        ...bounds,
+        isMaximized: false,
+      })
+    )
   }
 }
 
@@ -71,6 +160,20 @@ const createWindow = async () => {
   mainWindow.on('resize', () => saveWindowState(mainWindow))
   mainWindow.on('moved', () => saveWindowState(mainWindow))
 
+  mainWindow.on('maximize', () => {
+    fs.writeFileSync(
+      stateFilePath,
+      JSON.stringify({
+        ...mainWindow.getBounds(),
+        isMaximized: true,
+      })
+    )
+  })
+
+  mainWindow.on('unmaximize', () => {
+    saveWindowState(mainWindow)
+  })
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
   } else {
@@ -81,6 +184,15 @@ const createWindow = async () => {
 
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools()
+  }
+
+  try {
+    const savedState = JSON.parse(fs.readFileSync(stateFilePath, 'utf8'))
+    if (savedState.isMaximized) {
+      mainWindow.maximize()
+    }
+  } catch (error) {
+    console.error(error)
   }
 }
 
