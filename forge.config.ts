@@ -26,7 +26,7 @@ const config: ForgeConfig = {
   ],
   makers: [
     new MakerSquirrel({
-      name: 'JS Blitz',
+      name: 'JSBlitz',
       authors: 'Roberth González',
       description: 'Run JavaScript code in a flash',
     }),
