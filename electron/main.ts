@@ -149,6 +149,8 @@ const createWindow = async () => {
     height: state.height,
     x: state.x,
     y: state.y,
+    minWidth: defaultState.width / 2,
+    minHeight: defaultState.height / 2,
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
