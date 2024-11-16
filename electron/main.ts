@@ -198,8 +198,15 @@ const createWindow = async () => {
   }
 }
 
-ipcMain.handle('execute-code', async (_, request: ExecuteCodeRequest) => {
+ipcMain.handle('execute-code', async (event, request: ExecuteCodeRequest) => {
+  const webContents = event.sender
   try {
+    webContents.send('package-installation-started', {
+      message:
+        request.packages.length > 0
+          ? 'Installing packages...'
+          : 'Executing code...',
+    })
     return await executeCode(request)
   } catch (error) {
     return {
@@ -207,6 +214,8 @@ ipcMain.handle('execute-code', async (_, request: ExecuteCodeRequest) => {
       output: '',
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
+  } finally {
+    webContents.send('package-installation-finished')
   }
 })
 

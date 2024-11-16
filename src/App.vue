@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { useMonaco, type EditorProps } from '@guolao/vue-monaco-editor'
 import { useElementSize, useStorage } from '@vueuse/core'
 // @ts-ignore
@@ -207,6 +207,18 @@ const panelSizesStorage = useStorage(
 const handleResize = (event: any[]) => {
   panelSizesStorage.value = event.map(({ size }) => size)
 }
+
+const packageInstallationStatus = ref<string | null>(null)
+
+onMounted(() => {
+  window.electronAPI.onPackageInstallationStarted(({ message }) => {
+    packageInstallationStatus.value = message
+  })
+
+  window.electronAPI.onPackageInstallationFinished(() => {
+    packageInstallationStatus.value = null
+  })
+})
 </script>
 
 <template>
@@ -259,7 +271,14 @@ const handleResize = (event: any[]) => {
       </Pane>
       <Pane :min-size="10" :size="panelSizesStorage[1]">
         <div class="scrolls">
+          <div
+            v-if="packageInstallationStatus"
+            class="package-installation-status"
+          >
+            {{ packageInstallationStatus }}
+          </div>
           <pre
+            v-else
             ref="outputElement"
             class="output"
             data-lang="text/typescript"
@@ -300,7 +319,8 @@ const handleResize = (event: any[]) => {
   overflow: auto;
 }
 
-.output {
+.output,
+.package-installation-status {
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
