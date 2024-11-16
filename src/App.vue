@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useMonaco, type EditorProps } from '@guolao/vue-monaco-editor'
-// @ts-ignore
-import * as NodeTypes from '@types/node/index.d.ts?raw'
 import { useElementSize, useStorage } from '@vueuse/core'
 // @ts-ignore
 import { Pane, Splitpanes } from 'splitpanes'
