@@ -17,12 +17,21 @@ export interface ExecuteResponse {
   error?: string
 }
 
+type ExecuteCodeStatus =
+  | 'package-installation-started'
+  | 'package-installation-finished'
+  | 'code-execution-started'
+  | 'code-execution-finished'
+
+type ExecuteCodeCallback = (status: { status: ExecuteCodeStatus }) => void
+
 const isECMAImport = (code: string) => {
   return code.includes('import') || code.includes('export')
 }
 
 export async function executeCode(
-  request: ExecuteCodeRequest
+  request: ExecuteCodeRequest,
+  callback: ExecuteCodeCallback
 ): Promise<ExecuteResponse> {
   const { code, packages = [] } = request
 
@@ -48,18 +57,21 @@ export async function executeCode(
     })
 
     if (packages.length > 0) {
+      callback({ status: 'package-installation-started' })
       for await (const packageName of packages) {
         const isInstalled = await isPackageInstalled(packageName, projectPath)
         if (!isInstalled) {
           await installPackage(packageName, { cwd: projectPath })
         }
       }
+      callback({ status: 'package-installation-finished' })
     }
 
     const filename = 'out.js'
     const filepath = path.join(projectPath, filename)
     await fs.writeFile(filepath, code, 'utf8')
 
+    callback({ status: 'code-execution-started' })
     const result = await new Promise<string>((resolve, reject) => {
       exec(
         'node out.js',
@@ -76,6 +88,7 @@ export async function executeCode(
         }
       )
     })
+    callback({ status: 'code-execution-finished' })
 
     return {
       success: true,

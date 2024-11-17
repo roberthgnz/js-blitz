@@ -211,11 +211,19 @@ const handleResize = (event: any[]) => {
 const packageInstallationStatus = ref<string | null>(null)
 
 onMounted(() => {
-  window.electronAPI.onPackageInstallationStarted(({ message }) => {
+  window.electronAPI.on('package-installation-started', ({ message }) => {
     packageInstallationStatus.value = message
   })
 
-  window.electronAPI.onPackageInstallationFinished(() => {
+  window.electronAPI.on('package-installation-finished', () => {
+    packageInstallationStatus.value = null
+  })
+
+  window.electronAPI.on('code-execution-started', ({ message }) => {
+    packageInstallationStatus.value = message
+  })
+
+  window.electronAPI.on('code-execution-finished', () => {
     packageInstallationStatus.value = null
   })
 })

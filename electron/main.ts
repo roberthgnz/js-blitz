@@ -201,13 +201,18 @@ const createWindow = async () => {
 ipcMain.handle('execute-code', async (event, request: ExecuteCodeRequest) => {
   const webContents = event.sender
   try {
-    webContents.send('package-installation-started', {
-      message:
-        request.packages.length > 0
-          ? 'Installing packages...'
-          : 'Executing code...',
+    return await executeCode(request, ({ status }) => {
+      if (status === 'package-installation-started') {
+        webContents.send(status, {
+          message: 'Installing packages...',
+        })
+      }
+      if (status === 'code-execution-started') {
+        webContents.send(status, {
+          message: 'Executing code...',
+        })
+      }
     })
-    return await executeCode(request)
   } catch (error) {
     return {
       success: false,
@@ -216,6 +221,7 @@ ipcMain.handle('execute-code', async (event, request: ExecuteCodeRequest) => {
     }
   } finally {
     webContents.send('package-installation-finished')
+    webContents.send('code-execution-finished')
   }
 })
 
