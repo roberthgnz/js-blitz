@@ -13,7 +13,7 @@ if (started) {
 
 updateElectronApp({
   repo: 'roberthgnz/js-blitz',
-  updateInterval: '1 day',
+  updateInterval: '1 hour',
 })
 
 const userDataPath = app.isPackaged
