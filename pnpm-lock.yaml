@@ -29,6 +29,9 @@ importers:
       '@vueuse/shared':
         specifier: ^11.2.0
         version: 11.2.0(vue@3.5.12(typescript@4.5.5))
+      electron-log:
+        specifier: ^5.2.2
+        version: 5.2.2
       electron-squirrel-startup:
         specifier: ^1.0.1
         version: 1.0.1
@@ -1419,6 +1422,10 @@ packages:
     engines: {node: '>= 10.0.0'}
     os: [darwin, linux]
     hasBin: true
+
+  electron-log@5.2.2:
+    resolution: {integrity: sha512-fgvx6srjIHDowJD8WAAjoAXmiTyOz6JnGQoxOtk1mXw7o4S+HutuPHLCsk24xTXqWZgy4uO63NbedG+oEvldLw==}
+    engines: {node: '>= 14'}
 
   electron-squirrel-startup@1.0.1:
     resolution: {integrity: sha512-sTfFIHGku+7PsHLJ7v0dRcZNkALrV+YEozINTW8X1nM//e5O3L+rfYuvSW00lmGHnYmUjARZulD8F2V8ISI9RA==}
@@ -5074,6 +5081,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
     optional: true
+
+  electron-log@5.2.2: {}
 
   electron-squirrel-startup@1.0.1:
     dependencies:
