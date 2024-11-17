@@ -281,6 +281,7 @@ onMounted(() => {
       <Pane :min-size="10" :size="panelSizesStorage[1]">
         <div class="scrolls">
           <LoadingIcon
+            v-if="isExecutingCode"
             class="absolute top-[14px] right-[14px] size-4 animate-spin"
             :style="{
               color: statusBarForeground,
