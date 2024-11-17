@@ -151,6 +151,7 @@ const createWindow = async () => {
     y: state.y,
     minWidth: defaultState.width / 2,
     minHeight: defaultState.height / 2,
+    icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
