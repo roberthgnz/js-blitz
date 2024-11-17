@@ -25,7 +25,7 @@ const closeWindow = () => {
 
 <template>
   <div id="titlebar" class="w-full flex items-center justify-between">
-    <div></div>
+    <img src="../../icon.png" alt="Logo" class="size-8" />
     <div>
       <button
         type="button"
