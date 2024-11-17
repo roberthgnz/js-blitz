@@ -202,26 +202,16 @@ ipcMain.handle('execute-code', async (event, request: ExecuteCodeRequest) => {
   const webContents = event.sender
   try {
     return await executeCode(request, ({ status }) => {
-      if (status === 'package-installation-started') {
-        webContents.send(status, {
-          message: 'Installing packages...',
-        })
-      }
-      if (status === 'code-execution-started') {
-        webContents.send(status, {
-          message: 'Executing code...',
-        })
-      }
+      webContents.send(status)
     })
   } catch (error) {
+    webContents.send('code-execution-finished')
+    webContents.send('package-installation-finished')
     return {
       success: false,
       output: '',
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
-  } finally {
-    webContents.send('package-installation-finished')
-    webContents.send('code-execution-finished')
   }
 })
 
