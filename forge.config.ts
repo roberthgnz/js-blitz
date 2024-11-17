@@ -1,3 +1,4 @@
+import path from 'path'
 import { MakerDeb } from '@electron-forge/maker-deb'
 import { MakerRpm } from '@electron-forge/maker-rpm'
 import { MakerSquirrel } from '@electron-forge/maker-squirrel'
@@ -30,10 +31,18 @@ const config: ForgeConfig = {
       name: 'JSBlitz',
       authors: 'Roberth González',
       description: 'Run JavaScript code in a flash',
+      setupIcon: path.join(__dirname, 'icon.ico'),
     }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerDeb({
+      options: {
+        name: 'JSBlitz',
+        maintainer: 'Roberth González',
+        description: 'Run JavaScript code in a flash',
+        icon: path.join(__dirname, 'icon.png'),
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({
