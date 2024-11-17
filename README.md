@@ -6,10 +6,10 @@ JSBlitz is an Electron-based application that allows you to run JavaScript code 
 
 ## Features
 
-- Execute JavaScript/TypeScript code
-- Install and use npm packages on the fly
-- Electron-based desktop application
-- Monaco editor integration with syntax highlighting and code formatting
+- ⚡ Execute JavaScript/TypeScript code
+- 📦 Install and use npm packages on the fly
+- 🖥️ Electron-based desktop application
+- ✨ Monaco editor integration with syntax highlighting and code formatting
 
 ## Installation
 
