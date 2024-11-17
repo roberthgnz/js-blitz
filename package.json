@@ -9,7 +9,7 @@
     "dev": "electron-forge start -- --dev",
     "package": "rimraf out && electron-forge package",
     "make": "rimraf out && electron-forge make",
-    "publish": "electron-forge publish",
+    "publish": "dotenv -e .env electron-forge publish",
     "version": "git add -A src",
     "postversion": "git push && git push --tags"
   },
@@ -32,6 +32,7 @@
     "@vue/runtime-dom": "^3.5.12",
     "@vue/shared": "^3.5.12",
     "autoprefixer": "^10.4.20",
+    "dotenv-cli": "^7.4.2",
     "electron": "^33.0.2",
     "eslint": "^8.0.1",
     "eslint-plugin-import": "^2.25.0",
