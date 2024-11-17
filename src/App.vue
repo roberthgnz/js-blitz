@@ -7,6 +7,7 @@ import { Pane, Splitpanes } from 'splitpanes'
 
 import DraculaTheme from '../vs-themes/dracula.json'
 import ClearIcon from './components/icons/Clear.vue'
+import LoadingIcon from './components/icons/Loading.vue'
 import RunIcon from './components/icons/Run.vue'
 import WindowControls from './components/WindowControls.vue'
 import { getPackages } from './lib/packages'
@@ -208,23 +209,23 @@ const handleResize = (event: any[]) => {
   panelSizesStorage.value = event.map(({ size }) => size)
 }
 
-const packageInstallationStatus = ref<string | null>(null)
+const isExecutingCode = ref(false)
 
 onMounted(() => {
-  window.electronAPI.on('package-installation-started', ({ message }) => {
-    packageInstallationStatus.value = message
+  window.electronAPI.on('package-installation-started', () => {
+    isExecutingCode.value = true
   })
 
   window.electronAPI.on('package-installation-finished', () => {
-    packageInstallationStatus.value = null
+    isExecutingCode.value = false
   })
 
-  window.electronAPI.on('code-execution-started', ({ message }) => {
-    packageInstallationStatus.value = message
+  window.electronAPI.on('code-execution-started', () => {
+    isExecutingCode.value = true
   })
 
   window.electronAPI.on('code-execution-finished', () => {
-    packageInstallationStatus.value = null
+    isExecutingCode.value = false
   })
 })
 </script>
@@ -279,14 +280,13 @@ onMounted(() => {
       </Pane>
       <Pane :min-size="10" :size="panelSizesStorage[1]">
         <div class="scrolls">
-          <div
-            v-if="packageInstallationStatus"
-            class="package-installation-status"
-          >
-            {{ packageInstallationStatus }}
-          </div>
+          <LoadingIcon
+            class="absolute top-[14px] right-[14px] size-4 animate-spin"
+            :style="{
+              color: statusBarForeground,
+            }"
+          />
           <pre
-            v-else
             ref="outputElement"
             class="output"
             data-lang="text/typescript"
@@ -323,12 +323,12 @@ onMounted(() => {
 }
 
 .scrolls {
+  position: relative;
   height: 100%;
   overflow: auto;
 }
 
-.output,
-.package-installation-status {
+.output {
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
