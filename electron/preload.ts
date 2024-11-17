@@ -12,7 +12,7 @@ declare global {
       minimizeWindow: () => void
       maximizeWindow: () => void
       closeWindow: () => void
-      checkForUpdates: () => void
+      showContextMenu: () => void
     }
   }
 }
@@ -24,5 +24,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
-  checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+  showContextMenu: () => ipcRenderer.send('show-context-menu'),
 })

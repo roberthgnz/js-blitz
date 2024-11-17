@@ -191,6 +191,10 @@ const runCode = async (code: string) => {
 
 const clearOutput = () => (outputElement.value.innerHTML = '')
 
+const showContextMenu = () => {
+  window.electronAPI.showContextMenu()
+}
+
 const topBar = ref<HTMLElement | null>(null)
 
 const { height: v } = useElementSize(topBar, undefined, { box: 'border-box' })
@@ -269,7 +273,12 @@ onMounted(() => {
       >
         <ClearIcon class="size-4" />
       </button>
-      <button type="button" class="p-2 select-none mt-auto" title="Settings">
+      <button
+        type="button"
+        class="p-2 select-none mt-auto"
+        title="Settings"
+        @click="showContextMenu"
+      >
         <SettingsIcon class="size-4" />
       </button>
     </div>

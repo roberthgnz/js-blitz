@@ -1,6 +1,12 @@
 import fs from 'fs'
 import path from 'path'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  type MenuItemConstructorOptions,
+} from 'electron'
 import started from 'electron-squirrel-startup'
 import { autoUpdater } from 'electron-updater'
 import si from 'systeminformation'
@@ -141,6 +147,27 @@ const saveWindowState = (window: BrowserWindow) => {
   }
 }
 
+const createContextMenu = () => {
+  const template = [
+    {
+      label: 'GitHub',
+      click: () => {
+        require('electron').shell.openExternal(
+          'https://github.com/roberthgnz/js-blitz'
+        )
+      },
+    },
+    {
+      label: 'Check for Updates',
+      click: () => {
+        autoUpdater.checkForUpdatesAndNotify()
+      },
+    },
+  ] as MenuItemConstructorOptions[]
+
+  return Menu.buildFromTemplate(template)
+}
+
 const createWindow = async () => {
   const state = await loadWindowState()
 
@@ -236,6 +263,11 @@ ipcMain.on('close-window', () => {
 
 ipcMain.on('check-for-updates', () => {
   autoUpdater.checkForUpdatesAndNotify()
+})
+
+ipcMain.on('show-context-menu', (event) => {
+  const menu = createContextMenu()
+  menu.popup({ window: BrowserWindow.fromWebContents(event.sender) })
 })
 
 app.on('ready', () => {
