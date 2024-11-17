@@ -9,6 +9,7 @@ import DraculaTheme from '../vs-themes/dracula.json'
 import ClearIcon from './components/icons/Clear.vue'
 import LoadingIcon from './components/icons/Loading.vue'
 import RunIcon from './components/icons/Run.vue'
+import SettingsIcon from './components/icons/Settings.vue'
 import WindowControls from './components/WindowControls.vue'
 import { getPackages } from './lib/packages'
 
@@ -247,7 +248,10 @@ onMounted(() => {
   >
     <div
       class="size-full flex flex-col items-center"
-      :style="{ backgroundColor: statusBarBackground }"
+      :style="{
+        height: `calc(100% - ${height})`,
+        backgroundColor: statusBarBackground,
+      }"
     >
       <button
         type="button"
@@ -264,6 +268,9 @@ onMounted(() => {
         @click="clearOutput"
       >
         <ClearIcon class="size-4" />
+      </button>
+      <button type="button" class="p-2 select-none mt-auto" title="Settings">
+        <SettingsIcon class="size-4" />
       </button>
     </div>
     <Splitpanes @resize="handleResize">
