@@ -2,13 +2,13 @@ import fs from 'fs'
 import path from 'path'
 import {
   app,
+  autoUpdater,
   BrowserWindow,
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
 } from 'electron'
 import started from 'electron-squirrel-startup'
-import { autoUpdater } from 'electron-updater'
 import si from 'systeminformation'
 import { updateElectronApp } from 'update-electron-app'
 
@@ -21,6 +21,16 @@ if (started) {
 updateElectronApp({
   repo: 'roberthgnz/js-blitz',
   updateInterval: '1 hour',
+})
+
+const getFeedURL = () => {
+  const host = 'https://update.electronjs.org'
+  const feedURL = `${host}/roberthgnz/js-blitz/${process.platform}/${app.getVersion()}`
+  return feedURL
+}
+
+autoUpdater.setFeedURL({
+  url: getFeedURL(),
 })
 
 const userDataPath = app.isPackaged
@@ -160,7 +170,7 @@ const createContextMenu = () => {
     {
       label: 'Check for Updates',
       click: () => {
-        autoUpdater.checkForUpdatesAndNotify()
+        autoUpdater.checkForUpdates()
       },
     },
   ] as MenuItemConstructorOptions[]
@@ -261,19 +271,13 @@ ipcMain.on('close-window', () => {
   BrowserWindow.getFocusedWindow()?.close()
 })
 
-ipcMain.on('check-for-updates', () => {
-  autoUpdater.checkForUpdatesAndNotify()
-})
-
 ipcMain.on('show-context-menu', (event) => {
   const menu = createContextMenu()
   menu.popup({ window: BrowserWindow.fromWebContents(event.sender) })
 })
 
 app.on('ready', () => {
-  createWindow().then(() => {
-    autoUpdater.checkForUpdatesAndNotify()
-  })
+  createWindow()
 })
 
 app.on('window-all-closed', () => {

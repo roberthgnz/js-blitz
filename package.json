@@ -51,6 +51,10 @@
     "name": "Roberth González",
     "email": "reliutg@gmail.com"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roberthgnz/js-blitz.git"
+  },
   "license": "MIT",
   "dependencies": {
     "@antfu/install-pkg": "^0.4.1",
@@ -60,6 +64,7 @@
     "@vitejs/plugin-vue": "^5.1.4",
     "@vueuse/core": "^11.2.0",
     "@vueuse/shared": "^11.2.0",
+    "electron-log": "^5.2.2",
     "electron-squirrel-startup": "^1.0.1",
     "splitpanes": "^3.1.5",
     "state-local": "^1.0.7",
