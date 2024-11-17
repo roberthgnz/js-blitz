@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import started from 'electron-squirrel-startup'
+import { autoUpdater } from 'electron-updater'
 import si from 'systeminformation'
 import { updateElectronApp } from 'update-electron-app'
 
@@ -233,7 +234,15 @@ ipcMain.on('close-window', () => {
   BrowserWindow.getFocusedWindow()?.close()
 })
 
-app.on('ready', createWindow)
+ipcMain.on('check-for-updates', () => {
+  autoUpdater.checkForUpdatesAndNotify()
+})
+
+app.on('ready', () => {
+  createWindow().then(() => {
+    autoUpdater.checkForUpdatesAndNotify()
+  })
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

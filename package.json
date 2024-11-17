@@ -61,6 +61,7 @@
     "@vueuse/core": "^11.2.0",
     "@vueuse/shared": "^11.2.0",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.3.9",
     "splitpanes": "^3.1.5",
     "state-local": "^1.0.7",
     "systeminformation": "^5.23.5",
