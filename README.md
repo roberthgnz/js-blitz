@@ -2,7 +2,7 @@
 
 ![image](https://github.com/user-attachments/assets/4cfd4921-48e7-4478-8500-84f73ee6e72e)
 
-JSBlitz is an Electron-based application that allows you to run JavaScript code in a flash. It provides a simple and efficient way to execute JavaScript/TypeScript code with support for package installation.
+JSBlitz is an alternative to RunJS that allows you to run JavaScript code in a flash. It provides a simple and efficient way to execute JavaScript/TypeScript code with support for package installation.
 
 ## Features
 
