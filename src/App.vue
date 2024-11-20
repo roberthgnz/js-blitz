@@ -142,6 +142,9 @@ watch(
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_MINUS, () => {
       editor.trigger('zoom', 'editor.action.fontZoomOut')
     })
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      diagnosticCodesToIgnore: [2792], // Disable the "Cannot find module" error messages
+    })
   },
   { immediate: true, deep: true }
 )
