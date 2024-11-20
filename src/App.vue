@@ -298,7 +298,7 @@ onMounted(() => {
         <div class="scrolls">
           <LoadingIcon
             v-if="isExecutingCode"
-            class="absolute top-[14px] right-[14px] size-4 animate-spin"
+            class="absolute top-[14px] left-[14px] size-4 animate-spin"
             :style="{
               color: statusBarForeground,
             }"
