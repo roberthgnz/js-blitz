@@ -5,11 +5,9 @@ import { useElementSize, useStorage } from '@vueuse/core'
 // @ts-ignore
 import { Pane, Splitpanes } from 'splitpanes'
 
-import ClearIcon from './components/icons/Clear.vue'
+import ActivityBar from './components/ActivityBar.vue'
 import LoadingIcon from './components/icons/Loading.vue'
-import RunIcon from './components/icons/Run.vue'
-import SettingsIcon from './components/icons/Settings.vue'
-import WindowControls from './components/WindowControls.vue'
+import TitleBar from './components/TitleBar.vue'
 import { getPackages } from './lib/packages'
 import { getThemes } from './lib/themes'
 
@@ -17,6 +15,7 @@ const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
   automaticLayout: true,
   formatOnType: true,
   formatOnPaste: true,
+  lineNumbers: 'off',
   minimap: {
     enabled: false,
   },
@@ -234,7 +233,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <WindowControls
+  <TitleBar
     ref="topBar"
     :style="{
       backgroundColor: activityBarBackground,
@@ -248,38 +247,15 @@ onMounted(() => {
       height: `calc(100% - ${height})`,
     }"
   >
-    <div
-      class="size-full flex flex-col items-center"
+    <ActivityBar
+      @run-code="executeCode"
+      @clear-output="clearOutput"
+      @show-context-menu="showContextMenu"
       :style="{
         height: `calc(100% - ${height})`,
         backgroundColor: activityBarBackground,
       }"
-    >
-      <button
-        type="button"
-        class="p-2 select-none"
-        title="Run code (CtrlCmd + Enter)"
-        @click="executeCode"
-      >
-        <RunIcon class="size-4" />
-      </button>
-      <button
-        type="button"
-        class="p-2 select-none"
-        title="Clear output"
-        @click="clearOutput"
-      >
-        <ClearIcon class="size-4" />
-      </button>
-      <button
-        type="button"
-        class="p-2 select-none mt-auto"
-        title="Settings"
-        @click="showContextMenu"
-      >
-        <SettingsIcon class="size-4" />
-      </button>
-    </div>
+    />
     <Splitpanes @resize="handleResize">
       <Pane :min-size="10" :size="panelSizesStorage[0]">
         <div class="scrolls">
