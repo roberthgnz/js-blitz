@@ -173,9 +173,6 @@ const createContextMenu = () => {
       })),
     },
     {
-      type: 'separator',
-    },
-    {
       label: 'GitHub',
       click: () => {
         require('electron').shell.openExternal(
@@ -184,12 +181,16 @@ const createContextMenu = () => {
       },
     },
     {
-      type: 'separator',
-    },
-    {
       label: 'Check for Updates',
       click: () => {
         autoUpdater.checkForUpdates()
+        autoUpdater.on('update-not-available', () => {
+          require('electron').dialog.showMessageBox({
+            type: 'info',
+            title: 'JSBlitz',
+            message: 'No updates available',
+          })
+        })
       },
     },
   ] as MenuItemConstructorOptions[]
