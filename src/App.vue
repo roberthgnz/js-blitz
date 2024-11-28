@@ -20,6 +20,9 @@ const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
   minimap: {
     enabled: false,
   },
+  stickyScroll: {
+    enabled: false,
+  },
 }
 
 const DEFAULT_CODE =
