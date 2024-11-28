@@ -63,13 +63,16 @@ const closeWindow = () => {
 }
 
 button.action {
-  color: var(--buttonSecondaryForeground);
-  transition: background-color 0.2s;
+  opacity: 0.75;
+  color: var(--buttonForeground);
+  transition: all 0.2s;
   -webkit-app-region: no-drag;
 }
 
 button.action:hover {
-  background-color: var(--buttonSecondaryHoverBackground);
+  opacity: 1;
+  color: var(--buttonHoverForeground);
+  background-color: #ffffff1a;
 }
 
 button.action--close:hover {
