@@ -5,13 +5,13 @@ import { useElementSize, useStorage } from '@vueuse/core'
 // @ts-ignore
 import { Pane, Splitpanes } from 'splitpanes'
 
-import DraculaTheme from '../vs-themes/dracula.json'
 import ClearIcon from './components/icons/Clear.vue'
 import LoadingIcon from './components/icons/Loading.vue'
 import RunIcon from './components/icons/Run.vue'
 import SettingsIcon from './components/icons/Settings.vue'
 import WindowControls from './components/WindowControls.vue'
 import { getPackages } from './lib/packages'
+import { getThemes } from './lib/themes'
 
 const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
   automaticLayout: true,
@@ -37,8 +37,22 @@ const inputCodeStorage = useStorage(
 const code = ref(inputCodeStorage.value || DEFAULT_CODE)
 const editorRef = shallowRef()
 
+const { monacoRef } = useMonaco()
+
+const themeColorStorage = useStorage(
+  'js-blitz-theme',
+  'dracula',
+  localStorage,
+  {
+    listenToStorageChanges: false,
+  }
+)
+
+const themes = ref([])
+
 const getThemeColor = (color: string) => {
-  return editorRef.value?._themeService._theme.themeData.colors[color]
+  return themes.value.find((theme) => theme.name === themeColorStorage.value)
+    ?.data.colors[color]
 }
 
 const editorBgColor = computed(() => {
@@ -47,11 +61,11 @@ const editorBgColor = computed(() => {
 const editorFgColor = computed(() => {
   return getThemeColor('editor.foreground')
 })
-const statusBarBackground = computed(() => {
-  return getThemeColor('statusBar.background')
+const activityBarBackground = computed(() => {
+  return getThemeColor('activityBar.background')
 })
-const statusBarForeground = computed(() => {
-  return getThemeColor('statusBar.foreground')
+const activityBarForeground = computed(() => {
+  return getThemeColor('activityBar.foreground')
 })
 const buttonSecondaryForeground = computed(() => {
   return getThemeColor('button.secondaryForeground')
@@ -60,31 +74,7 @@ const buttonSecondaryHoverBackground = computed(() => {
   return getThemeColor('button.secondaryHoverBackground')
 })
 
-const { monacoRef } = useMonaco()
-
-const getMonacoThemeData = (themeDefinition: any) => {
-  const themeData: any = {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [],
-    colors: themeDefinition.colors,
-  }
-
-  // Map token colors
-  themeDefinition.tokenColors.forEach((tokenColor: any) => {
-    const rule = {
-      token: tokenColor.scope.join(', '),
-      foreground: tokenColor.settings.foreground,
-      background: tokenColor.settings.background,
-      fontStyle: tokenColor.settings.fontStyle,
-    }
-    themeData.rules.push(rule)
-  })
-
-  return themeData
-}
-
-const handleMount = (editor: any) => {
+const handleMount = async (editor: any) => {
   editorRef.value = editor
 
   /**
@@ -95,13 +85,15 @@ const handleMount = (editor: any) => {
   })
 
   /**
-   * THEME CONFIGURATION
+   * THEMES
    */
-  monacoRef.value.editor.defineTheme(
-    'dracula',
-    getMonacoThemeData(DraculaTheme)
-  )
-  monacoRef.value.editor.setTheme('dracula')
+  themes.value = await getThemes()
+
+  themes.value.forEach((theme) => {
+    monacoRef.value.editor.defineTheme(theme.name, theme.data)
+  })
+
+  monacoRef.value.editor.setTheme(themeColorStorage.value)
 }
 
 const outputElement = ref<HTMLElement | null>(null)
@@ -187,7 +179,7 @@ const runCode = async (code: string) => {
   } finally {
     console.timeEnd('runCode')
     monacoRef.value.editor.colorizeElement(outputElement.value, {
-      theme: 'dracula',
+      theme: themeColorStorage.value,
     })
   }
 }
@@ -220,6 +212,12 @@ const handleResize = (event: any[]) => {
 const isExecutingCode = ref(false)
 
 onMounted(() => {
+  window.electronAPI.on('set-theme', async (theme: string) => {
+    themeColorStorage.value = theme
+    monacoRef.value.editor.setTheme(theme)
+    monacoRef.value.editor.colorizeElement(outputElement.value, { theme })
+  })
+
   window.electronAPI.on('package-installation-started', () => {
     isExecutingCode.value = true
   })
@@ -242,7 +240,7 @@ onMounted(() => {
   <WindowControls
     ref="topBar"
     :style="{
-      backgroundColor: statusBarBackground,
+      backgroundColor: activityBarBackground,
       '--buttonSecondaryForeground': buttonSecondaryForeground,
       '--buttonSecondaryHoverBackground': buttonSecondaryHoverBackground,
     }"
@@ -257,7 +255,7 @@ onMounted(() => {
       class="size-full flex flex-col items-center"
       :style="{
         height: `calc(100% - ${height})`,
-        backgroundColor: statusBarBackground,
+        backgroundColor: activityBarBackground,
       }"
     >
       <button
@@ -303,7 +301,7 @@ onMounted(() => {
             v-if="isExecutingCode"
             class="absolute top-[14px] left-[14px] size-4 animate-spin"
             :style="{
-              color: statusBarForeground,
+              color: activityBarForeground,
             }"
           />
           <pre
@@ -361,12 +359,12 @@ onMounted(() => {
 }
 
 button {
-  color: v-bind(statusBarForeground);
+  color: v-bind(activityBarForeground);
   transition: background-color 0.2s;
 }
 
 button:hover {
-  color: v-bind(statusBarForeground);
+  color: v-bind(activityBarForeground);
   background-color: v-bind(buttonSecondaryHoverBackground);
 }
 

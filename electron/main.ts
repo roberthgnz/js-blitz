@@ -12,6 +12,7 @@ import started from 'electron-squirrel-startup'
 import si from 'systeminformation'
 import { updateElectronApp } from 'update-electron-app'
 
+import { THEMES } from '../utils/constants'
 import { executeCode, type ExecuteCodeRequest } from './lib/coderunner'
 
 if (started) {
@@ -160,12 +161,30 @@ const saveWindowState = (window: BrowserWindow) => {
 const createContextMenu = () => {
   const template = [
     {
+      label: 'Color Theme',
+      submenu: THEMES.map((theme) => ({
+        label: theme.label,
+        click: () => {
+          BrowserWindow.getFocusedWindow()?.webContents.send(
+            'set-theme',
+            theme.key
+          )
+        },
+      })),
+    },
+    {
+      type: 'separator',
+    },
+    {
       label: 'GitHub',
       click: () => {
         require('electron').shell.openExternal(
           'https://github.com/roberthgnz/js-blitz'
         )
       },
+    },
+    {
+      type: 'separator',
     },
     {
       label: 'Check for Updates',
