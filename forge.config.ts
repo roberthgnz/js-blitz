@@ -10,8 +10,9 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses'
 
 const config: ForgeConfig = {
   packagerConfig: {
-    name: 'JSBlitz',
     asar: true,
+    name: 'JSBlitz',
+    icon: path.join(__dirname, 'icon.ico'),
   },
   rebuildConfig: {},
   publishers: [
@@ -28,19 +29,15 @@ const config: ForgeConfig = {
   ],
   makers: [
     new MakerSquirrel({
-      name: 'JSBlitz',
       authors: 'Roberth González',
       description: 'Run JavaScript code in a flash',
-      setupIcon: path.join(__dirname, 'icon.ico'),
     }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({
       options: {
-        name: 'JSBlitz',
         maintainer: 'Roberth González',
         description: 'Run JavaScript code in a flash',
-        icon: path.join(__dirname, 'icon.png'),
       },
     }),
   ],
