@@ -1,11 +1,13 @@
 <script lang="ts" setup>
 import ClearIcon from './icons/Clear.vue'
+import DownloadIcon from './icons/Download.vue'
 import RunIcon from './icons/Run.vue'
 import SettingsIcon from './icons/Settings.vue'
 
 defineEmits<{
   (event: 'run-code'): void
   (event: 'clear-output'): void
+  (event: 'download-code'): void
   (event: 'show-context-menu'): void
 }>()
 </script>
@@ -27,6 +29,14 @@ defineEmits<{
       @click="$emit('clear-output')"
     >
       <ClearIcon class="size-4" />
+    </button>
+    <button
+      type="button"
+      class="py-4 px-2 select-none"
+      v-tooltip.right="{ content: 'Download code', delay: 100 }"
+      @click="$emit('download-code')"
+    >
+      <DownloadIcon class="size-4" />
     </button>
     <button
       type="button"
