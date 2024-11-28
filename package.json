@@ -58,6 +58,9 @@
   "license": "MIT",
   "dependencies": {
     "@antfu/install-pkg": "^0.4.1",
+    "@floating-ui/core": "^1.6.8",
+    "@floating-ui/dom": "^1.6.12",
+    "@floating-ui/utils": "^0.2.8",
     "@guolao/vue-monaco-editor": "^1.5.4",
     "@monaco-editor/loader": "^1.4.0",
     "@sindresorhus/merge-streams": "^4.0.0",
@@ -66,6 +69,7 @@
     "@vueuse/shared": "^11.2.0",
     "electron-log": "^5.2.2",
     "electron-squirrel-startup": "^1.0.1",
+    "floating-vue": "^5.2.2",
     "splitpanes": "^3.1.5",
     "state-local": "^1.0.7",
     "systeminformation": "^5.23.5",
