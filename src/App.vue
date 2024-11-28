@@ -8,6 +8,7 @@ import { Pane, Splitpanes } from 'splitpanes'
 import ActivityBar from './components/ActivityBar.vue'
 import LoadingIcon from './components/icons/Loading.vue'
 import TitleBar from './components/TitleBar.vue'
+import { downloadCode } from './lib/download'
 import { getPackages } from './lib/packages'
 import { getThemes } from './lib/themes'
 
@@ -250,6 +251,7 @@ onMounted(() => {
     <ActivityBar
       @run-code="executeCode"
       @clear-output="clearOutput"
+      @download-code="() => downloadCode(code)"
       @show-context-menu="showContextMenu"
       :style="{
         height: `calc(100% - ${height})`,
