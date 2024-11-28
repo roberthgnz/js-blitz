@@ -15,7 +15,7 @@ defineEmits<{
     <button
       type="button"
       class="py-4 px-2 select-none"
-      title="Run code (CtrlCmd + Enter)"
+      v-tooltip.right="{ content: 'Run code (CtrlCmd + Enter)', delay: 100 }"
       @click="$emit('run-code')"
     >
       <RunIcon class="size-4" />
@@ -23,7 +23,7 @@ defineEmits<{
     <button
       type="button"
       class="py-4 px-2 select-none"
-      title="Clear output"
+      v-tooltip.right="{ content: 'Clear output', delay: 100 }"
       @click="$emit('clear-output')"
     >
       <ClearIcon class="size-4" />
@@ -31,10 +31,16 @@ defineEmits<{
     <button
       type="button"
       class="py-4 px-2 select-none mt-auto"
-      title="Settings"
+      v-tooltip.right="{ content: 'Settings', delay: 100 }"
       @click="$emit('show-context-menu')"
     >
       <SettingsIcon class="size-4" />
     </button>
   </div>
 </template>
+
+<style>
+.v-popper__inner {
+  @apply !text-xs;
+}
+</style>
