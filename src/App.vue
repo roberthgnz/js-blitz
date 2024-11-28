@@ -67,12 +67,6 @@ const activityBarBackground = computed(() => {
 const activityBarForeground = computed(() => {
   return getThemeColor('activityBar.foreground')
 })
-const buttonSecondaryForeground = computed(() => {
-  return getThemeColor('button.secondaryForeground')
-})
-const buttonSecondaryHoverBackground = computed(() => {
-  return getThemeColor('button.secondaryHoverBackground')
-})
 
 const handleMount = async (editor: any) => {
   editorRef.value = editor
@@ -241,8 +235,8 @@ onMounted(() => {
     ref="topBar"
     :style="{
       backgroundColor: activityBarBackground,
-      '--buttonSecondaryForeground': buttonSecondaryForeground,
-      '--buttonSecondaryHoverBackground': buttonSecondaryHoverBackground,
+      '--buttonForeground': activityBarForeground,
+      '--buttonHoverForeground': activityBarForeground,
     }"
   />
   <div
@@ -359,13 +353,14 @@ onMounted(() => {
 }
 
 button {
+  opacity: 0.75;
   color: v-bind(activityBarForeground);
-  transition: background-color 0.2s;
+  transition: all0.2s;
 }
 
 button:hover {
+  opacity: 1;
   color: v-bind(activityBarForeground);
-  background-color: v-bind(buttonSecondaryHoverBackground);
 }
 
 ::-webkit-scrollbar {
