@@ -14,7 +14,7 @@ defineEmits<{
   <div class="size-full flex flex-col items-center">
     <button
       type="button"
-      class="p-2 select-none"
+      class="py-4 px-2 select-none"
       title="Run code (CtrlCmd + Enter)"
       @click="$emit('run-code')"
     >
@@ -22,7 +22,7 @@ defineEmits<{
     </button>
     <button
       type="button"
-      class="p-2 select-none"
+      class="py-4 px-2 select-none"
       title="Clear output"
       @click="$emit('clear-output')"
     >
@@ -30,7 +30,7 @@ defineEmits<{
     </button>
     <button
       type="button"
-      class="p-2 select-none mt-auto"
+      class="py-4 px-2 select-none mt-auto"
       title="Settings"
       @click="$emit('show-context-menu')"
     >
