@@ -16,9 +16,7 @@ export const getThemeData = (themeDefinition: any) => {
       token: Array.isArray(tokenColor.scope)
         ? tokenColor.scope.join(', ')
         : tokenColor.scope,
-      foreground: tokenColor.settings.foreground,
-      background: tokenColor.settings.background,
-      fontStyle: tokenColor.settings.fontStyle,
+      ...tokenColor.settings,
     }
     themeData.rules.push(rule)
   })

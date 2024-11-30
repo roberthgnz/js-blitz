@@ -15,4 +15,12 @@ export const THEMES = [
     key: 'monokai-classic',
     label: 'Monokai Classic',
   },
+  {
+    key: 'night-owl',
+    label: 'Night Owl',
+  },
+  {
+    key: 'noctis-obscuro',
+    label: 'Noctis Obscuro',
+  },
 ] as const
