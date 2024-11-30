@@ -2,9 +2,9 @@ import { exec } from 'child_process'
 import fs from 'fs/promises'
 import path from 'path'
 import util from 'util'
+import { DEFAULT_TIMEOUT } from '@/utils/constants'
 import { installPackage } from '@antfu/install-pkg'
 import { app } from 'electron'
-import { DEFAULT_TIMEOUT } from 'utils/constants'
 
 import { initPackageJson, isPackageInstalled } from './packages'
 
