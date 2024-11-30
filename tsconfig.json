@@ -14,6 +14,7 @@
     "paths": {
       "@/electron/*": ["electron/*"],
       "@/src/*": ["src/*"],
+      "@/types/*": ["types/*"],
       "@/utils/*": ["utils/*"]
     }
   }

@@ -1,8 +1,7 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
+import type { ExecuteResponse } from '@/types/index'
 import { contextBridge, ipcRenderer } from 'electron'
-
-import type { ExecuteResponse } from './lib/coderunner'
 
 declare global {
   interface Window {

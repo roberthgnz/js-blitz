@@ -12,6 +12,7 @@ import started from 'electron-squirrel-startup'
 import si from 'systeminformation'
 import { updateElectronApp } from 'update-electron-app'
 
+import { WindowState } from '../types'
 import { THEMES } from '../utils/constants'
 import { executeCode, type ExecuteCodeRequest } from './lib/coderunner'
 import { getPackages } from './lib/packages'
@@ -42,13 +43,6 @@ const stateFilePath = path.join(userDataPath, 'window-state.json')
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string
 declare const MAIN_WINDOW_VITE_NAME: string
-
-type WindowState = {
-  width: number
-  height: number
-  x: number
-  y: number
-}
 
 const defaultState: WindowState = {
   width: 800,
