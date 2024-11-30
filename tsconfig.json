@@ -7,9 +7,14 @@
     "esModuleInterop": true,
     "noImplicitAny": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "outDir": "dist",
     "moduleResolution": "node",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/electron/*": ["electron/*"],
+      "@/src/*": ["src/*"],
+      "@/utils/*": ["utils/*"]
+    }
   }
 }
