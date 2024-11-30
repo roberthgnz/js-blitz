@@ -1,5 +1,10 @@
 import fs from 'fs/promises'
 import path from 'path'
+import {
+  DYNAMIC_IMPORT_REGEX,
+  ES_IMPORT_REGEX,
+  REQUIRE_REGEX,
+} from '@/utils/constants'
 
 export const initPackageJson = (directory: string, options: any) => {
   return fs.writeFile(
@@ -26,9 +31,6 @@ export const isPackageInstalled = async (
 }
 
 const getImports = (code: string) => {
-  const ES_IMPORT_REGEX = /import\s+(?:[\w*{}\s,]*\s+from\s+)?["'](.+?)["'];?/g
-  const DYNAMIC_IMPORT_REGEX = /import\(["'](.+?)["']\)/g
-
   const modules = new Set<string>()
 
   let match
@@ -43,8 +45,6 @@ const getImports = (code: string) => {
 }
 
 const getRequires = (code: string) => {
-  const REQUIRE_REGEX = /require\(["'](.+?)["']\)/g
-
   const modules = new Set<string>()
 
   let match
