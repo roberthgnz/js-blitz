@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       '@/electron': path.resolve(__dirname, './electron'),
       '@/src': path.resolve(__dirname, './src'),
+      '@/types': path.resolve(__dirname, './types'),
       '@/utils': path.resolve(__dirname, './utils'),
     },
   },

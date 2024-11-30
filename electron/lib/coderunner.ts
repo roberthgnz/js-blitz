@@ -2,6 +2,12 @@ import { exec } from 'child_process'
 import fs from 'fs/promises'
 import path from 'path'
 import util from 'util'
+import vm from 'vm'
+import type {
+  ExecuteCodeCallback,
+  ExecuteResponse,
+  Output,
+} from '@/types/index'
 import { DEFAULT_TIMEOUT } from '@/utils/constants'
 import { installPackage } from '@antfu/install-pkg'
 import { app } from 'electron'
@@ -13,24 +19,23 @@ export interface ExecuteCodeRequest {
   packages: string[]
 }
 
-export interface ExecuteResponse {
-  success: boolean
-  output: string
-  error?: string
-}
-
-type ExecuteCodeStatus =
-  | 'package-installation-started'
-  | 'package-installation-finished'
-  | 'code-execution-started'
-  | 'code-execution-finished'
-
-type ExecuteCodeCallback = (status: { status: ExecuteCodeStatus }) => void
-
 const execPromise = util.promisify(exec)
 
 const isECMAImport = (code: string) => {
   return code.includes('import') || code.includes('export')
+}
+
+const parseConsoleArgs = (args: any[]) => {
+  return args.map((arg) => {
+    if (typeof arg === 'object') {
+      try {
+        return JSON.stringify(arg, null, 2)
+      } catch (e) {
+        return '[Circular]'
+      }
+    }
+    return String(arg)
+  })
 }
 
 const executeComplexCode = async (
@@ -106,22 +111,46 @@ const executeSimpleCode = async (
     const { code } = request
 
     callback({ status: 'code-execution-started' })
-    const { stdout, stderr } = await execPromise(code, {
+
+    const output: Output[] = []
+
+    const sandbox = {
+      console: {
+        log(...args: any[]) {
+          const value = parseConsoleArgs(args).join(' ')
+          output.push({ type: 'log', value })
+        },
+        info(...args: any[]) {
+          const value = parseConsoleArgs(args).join(' ')
+          output.push({ type: 'log', value })
+        },
+        warn(...args: any[]) {
+          const value = parseConsoleArgs(args).join(' ')
+          output.push({ type: 'log', value })
+        },
+        error(...args: any[]) {
+          const value = parseConsoleArgs(args).join(' ')
+          output.push({ type: 'log', value })
+        },
+      },
+    }
+
+    vm.createContext(sandbox)
+
+    vm.runInContext(code, sandbox, {
       timeout: DEFAULT_TIMEOUT,
     })
-    if (stderr) {
-      throw new Error(stderr)
-    }
+
     callback({ status: 'code-execution-finished' })
 
     return {
+      output,
       success: true,
-      output: stdout.trim(),
     }
   } catch (error) {
     return {
+      output: [],
       success: false,
-      output: '',
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
   }
