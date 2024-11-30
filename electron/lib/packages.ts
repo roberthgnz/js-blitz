@@ -5,6 +5,7 @@ import {
   REQUIRE_REGEX,
 } from '@/utils/constants'
 import cache from 'memory-cache'
+import type { JSModuleLoadResult } from 'quickjs-emscripten'
 
 const moduleCache = new cache.Cache()
 
@@ -29,11 +30,13 @@ export const fetchPackageSource = async (moduleName: string) => {
 
   // @ts-ignore
   if (!moduleCache.has(url)) {
-    const bundled = await fetch(url).then((response) => response.text())
+    const bundled = await fetch(url).then(
+      (response) => response.text() as Promise<JSModuleLoadResult>
+    )
     moduleCache.put(url, bundled, DEFAULT_CACHE_TTL)
   }
 
-  return Promise.resolve(moduleCache.get(url)!)
+  return Promise.resolve(moduleCache.get(url) as JSModuleLoadResult)
 }
 
 const getImports = (code: string) => {
