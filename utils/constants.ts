@@ -1,4 +1,6 @@
-export const DEFAULT_TIMEOUT = 10000 as const // 10 second timeout
+export const DEFAULT_TIMEOUT = 10000 // 10 second timeout
+
+export const DEFAULT_CACHE_TTL = 1000 * 60 * 60 // 1 hour cache
 
 export const RESTRICTED_MODULES = [
   'fs',
@@ -6,7 +8,7 @@ export const RESTRICTED_MODULES = [
   'os',
   'path',
   'crypto',
-] as const
+]
 
 export const ES_IMPORT_REGEX =
   /import\s+(?:[\w*{}\s,]*\s+from\s+)?["'](.+?)["'];?/g
@@ -40,4 +42,4 @@ export const THEMES = [
     key: 'noctis',
     label: 'Noctis',
   },
-] as const
+]

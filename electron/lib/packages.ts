@@ -1,16 +1,39 @@
 import {
+  DEFAULT_CACHE_TTL,
   DYNAMIC_IMPORT_REGEX,
   ES_IMPORT_REGEX,
   REQUIRE_REGEX,
 } from '@/utils/constants'
+import cache from 'memory-cache'
+
+const moduleCache = new cache.Cache()
+
+// Add 'has' function to cache
+Object.defineProperty(moduleCache, 'has', {
+  value: function (key: string) {
+    return this.keys().includes(key)
+  },
+  writable: true,
+  configurable: true,
+})
 
 export const fetchPackageSource = async (moduleName: string) => {
-  try {
-    const response = await fetch(`https://esm.run/${moduleName}`)
-    return response.text()
-  } catch (_) {
-    return null
+  const origin = 'https://esm.sh/'
+  const u = new URL(moduleName, origin)
+
+  if (!origin.includes(u.origin)) {
+    throw new Error(`Invalid import "${moduleName}"`)
   }
+
+  const url = u.toString()
+
+  // @ts-ignore
+  if (!moduleCache.has(url)) {
+    const bundled = await fetch(url).then((response) => response.text())
+    moduleCache.put(url, bundled, DEFAULT_CACHE_TTL)
+  }
+
+  return Promise.resolve(moduleCache.get(url)!)
 }
 
 const getImports = (code: string) => {
