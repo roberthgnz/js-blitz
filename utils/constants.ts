@@ -1,5 +1,13 @@
 export const DEFAULT_TIMEOUT = 10000 as const // 10 second timeout
 
+export const RESTRICTED_MODULES = [
+  'fs',
+  'child_process',
+  'os',
+  'path',
+  'crypto',
+] as const
+
 export const ES_IMPORT_REGEX =
   /import\s+(?:[\w*{}\s,]*\s+from\s+)?["'](.+?)["'];?/g
 

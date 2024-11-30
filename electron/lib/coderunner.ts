@@ -4,7 +4,7 @@ import type {
   ExecuteResponse,
   Output,
 } from '@/types/index'
-import { DEFAULT_TIMEOUT } from '@/utils/constants'
+import { DEFAULT_TIMEOUT, RESTRICTED_MODULES } from '@/utils/constants'
 import { newQuickJSAsyncWASMModule } from 'quickjs-emscripten'
 
 import { fetchPackageSource } from './packages'
@@ -61,7 +61,12 @@ const executeComplexCode = async (
     context.setProp(context.global, 'console', consoleHandle)
     consoleHandle.dispose()
 
-    runtime.setModuleLoader(fetchPackageSource)
+    runtime.setModuleLoader((modeuleName) => {
+      if (RESTRICTED_MODULES.includes(modeuleName as any)) {
+        throw new Error(`Module "${modeuleName}" is restricted`)
+      }
+      return fetchPackageSource(modeuleName)
+    })
 
     const result = await context.evalCodeAsync(code)
     context.unwrapResult(result).dispose()
@@ -75,10 +80,11 @@ const executeComplexCode = async (
       success: true,
     }
   } catch (error) {
+    console.error('Error occurred while executing code:', error)
     return {
       output: [],
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error: error?.message || 'Unknown error occurred',
     }
   } finally {
     runtime.dispose()
@@ -130,10 +136,11 @@ const executeSimpleCode = async (
       success: true,
     }
   } catch (error) {
+    console.error('Error occurred while executing code:', error)
     return {
       output: [],
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error: error?.message || 'Unknown error occurred',
     }
   }
 }
