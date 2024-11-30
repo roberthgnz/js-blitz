@@ -58,7 +58,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@antfu/install-pkg": "^0.4.1",
     "@floating-ui/core": "^1.6.8",
     "@floating-ui/dom": "^1.6.12",
     "@floating-ui/utils": "^0.2.8",
@@ -68,15 +67,16 @@
     "@vitejs/plugin-vue": "^5.1.4",
     "@vueuse/core": "^11.2.0",
     "@vueuse/shared": "^11.2.0",
+    "dayjs": "^1.11.13",
     "electron-log": "^5.2.2",
     "electron-squirrel-startup": "^1.0.1",
     "floating-vue": "^5.2.2",
+    "quickjs-emscripten": "0.20.0",
     "splitpanes": "^3.1.5",
     "state-local": "^1.0.7",
     "systeminformation": "^5.23.5",
     "update-electron-app": "^3.0.0",
     "vue": "^3.5.12",
-    "vue-demi": "^0.14.10",
-    "which": "^5.0.0"
+    "vue-demi": "^0.14.10"
   }
 }
