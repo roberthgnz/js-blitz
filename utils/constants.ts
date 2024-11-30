@@ -1,3 +1,5 @@
+export const DEFAULT_TIMEOUT = 10000 as const // 10 second timeout
+
 export const THEMES = [
   {
     key: 'ayu-dark',

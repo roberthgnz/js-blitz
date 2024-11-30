@@ -9,7 +9,6 @@ import ActivityBar from './components/ActivityBar.vue'
 import LoadingIcon from './components/icons/Loading.vue'
 import TitleBar from './components/TitleBar.vue'
 import { downloadCode } from './lib/download'
-import { getPackages } from './lib/packages'
 import { getThemes } from './lib/themes'
 
 const MONACO_EDITOR_OPTIONS: EditorProps['options'] = {
@@ -95,31 +94,6 @@ const handleMount = async (editor: any) => {
 
 const outputElement = ref<HTMLElement | null>(null)
 
-const originalConsole = { ...console }
-
-console.log = function (...args) {
-  originalConsole.log(...args)
-
-  if (!outputElement.value || !(outputElement.value instanceof HTMLElement))
-    return
-
-  const formattedOutput =
-    args
-      .map((arg) => {
-        if (typeof arg === 'object') {
-          try {
-            return JSON.stringify(arg, null, 2)
-          } catch (e) {
-            return '[Circular]'
-          }
-        }
-        return String(arg)
-      })
-      .join(' ') + '\n'
-
-  outputElement.value.innerHTML += formattedOutput
-}
-
 watch(
   () => [monacoRef.value, editorRef.value],
   ([monaco, editor]) => {
@@ -156,17 +130,7 @@ const runCode = async (code: string) => {
   console.time('runCode')
   try {
     clearOutput()
-
-    const packages = getPackages(code)
-
-    if (!packages.length) {
-      return eval(code)
-    }
-
-    const result = await window.electronAPI.executeCode({
-      code,
-      packages,
-    })
+    const result = await window.electronAPI.executeCode(code)
     if (result.error) {
       throw new Error(result.error)
     }
