@@ -20,13 +20,13 @@ if (started) {
 }
 
 updateElectronApp({
-  repo: 'kjsahkjsdn/js-blitz',
+  repo: 'roberthgnz/js-blitz',
   updateInterval: '1 hour',
 })
 
 const getFeedURL = () => {
   const host = 'https://update.electronjs.org'
-  const feedURL = `${host}/kjsahkjsdn/js-blitz/${process.platform}/${app.getVersion()}`
+  const feedURL = `${host}/roberthgnz/js-blitz/${process.platform}/${app.getVersion()}`
   return feedURL
 }
 
@@ -176,7 +176,7 @@ const createContextMenu = () => {
       label: 'GitHub',
       click: () => {
         require('electron').shell.openExternal(
-          'https://github.com/kjsahkjsdn/js-blitz'
+          'https://github.com/roberthgnz/js-blitz'
         )
       },
     },
