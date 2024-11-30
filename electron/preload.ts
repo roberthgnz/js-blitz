@@ -2,13 +2,13 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { ExecuteCodeRequest, ExecuteResponse } from './lib/coderunner'
+import type { ExecuteResponse } from './lib/coderunner'
 
 declare global {
   interface Window {
     electronAPI: {
       on: (event: string, callback: (...args: any[]) => void) => void
-      executeCode: (request: ExecuteCodeRequest) => Promise<ExecuteResponse>
+      executeCode: (code: string) => Promise<ExecuteResponse>
       minimizeWindow: () => void
       maximizeWindow: () => void
       closeWindow: () => void

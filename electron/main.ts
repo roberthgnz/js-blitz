@@ -14,6 +14,7 @@ import { updateElectronApp } from 'update-electron-app'
 
 import { THEMES } from '../utils/constants'
 import { executeCode, type ExecuteCodeRequest } from './lib/coderunner'
+import { getPackages } from './lib/packages'
 
 if (started) {
   app.quit()
@@ -257,9 +258,11 @@ const createWindow = async () => {
   }
 }
 
-ipcMain.handle('execute-code', async (event, request: ExecuteCodeRequest) => {
+ipcMain.handle('execute-code', async (event, code) => {
   const webContents = event.sender
   try {
+    const packages = getPackages(code)
+    const request: ExecuteCodeRequest = { code, packages }
     return await executeCode(request, ({ status }) => {
       webContents.send(status)
     })
