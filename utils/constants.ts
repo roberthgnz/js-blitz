@@ -20,7 +20,7 @@ export const THEMES = [
     label: 'Night Owl',
   },
   {
-    key: 'noctis-obscuro',
-    label: 'Noctis Obscuro',
+    key: 'noctis',
+    label: 'Noctis',
   },
 ] as const
