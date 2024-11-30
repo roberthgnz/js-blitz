@@ -112,6 +112,8 @@ watch(
   { immediate: true, deep: true }
 )
 
+const isExecutingCode = ref(false)
+
 const executeCode = async () => {
   try {
     const uri = editorRef.value.getModel().uri
@@ -136,6 +138,7 @@ const runCode = async (code: string) => {
     }
     console.log(result.output)
   } catch (error) {
+    isExecutingCode.value = false
     console.log(`Error: ${error.message}`)
   } finally {
     console.timeEnd('runCode')
@@ -169,8 +172,6 @@ const panelSizesStorage = useStorage(
 const handleResize = (event: any[]) => {
   panelSizesStorage.value = event.map(({ size }) => size)
 }
-
-const isExecutingCode = ref(false)
 
 onMounted(() => {
   window.electronAPI.on('set-theme', async (theme: string) => {
