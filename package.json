@@ -25,6 +25,7 @@
     "@electron-forge/shared-types": "^7.5.0",
     "@electron/fuses": "^1.7.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
+    "@types/electron-squirrel-startup": "^1.0.2",
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
     "@vue/reactivity": "^3.5.12",
