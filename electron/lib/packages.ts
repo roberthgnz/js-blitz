@@ -1,32 +1,15 @@
-import fs from 'fs/promises'
-import path from 'path'
 import {
   DYNAMIC_IMPORT_REGEX,
   ES_IMPORT_REGEX,
   REQUIRE_REGEX,
 } from '@/utils/constants'
 
-export const initPackageJson = (directory: string, options: any) => {
-  return fs.writeFile(
-    `${directory}/package.json`,
-    JSON.stringify(
-      { name: 'js-blitz', version: '0.0.0', private: true, ...options },
-      null,
-      2
-    )
-  )
-}
-
-export const isPackageInstalled = async (
-  packageName: string,
-  directory: string
-) => {
+export const fetchPackageSource = async (moduleName: string) => {
   try {
-    const packagePath = path.join(directory, 'node_modules', packageName)
-    await fs.access(packagePath)
-    return true
-  } catch {
-    return false
+    const response = await fetch(`https://esm.run/${moduleName}`)
+    return response.text()
+  } catch (_) {
+    return null
   }
 }
 

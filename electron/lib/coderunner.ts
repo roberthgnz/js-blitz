@@ -1,7 +1,3 @@
-import { exec } from 'child_process'
-import fs from 'fs/promises'
-import path from 'path'
-import util from 'util'
 import vm from 'vm'
 import type {
   ExecuteCodeCallback,
@@ -9,20 +5,13 @@ import type {
   Output,
 } from '@/types/index'
 import { DEFAULT_TIMEOUT } from '@/utils/constants'
-import { installPackage } from '@antfu/install-pkg'
-import { app } from 'electron'
+import { newQuickJSAsyncWASMModule } from 'quickjs-emscripten'
 
-import { initPackageJson, isPackageInstalled } from './packages'
+import { fetchPackageSource } from './packages'
 
 export interface ExecuteCodeRequest {
   code: string
   packages: string[]
-}
-
-const execPromise = util.promisify(exec)
-
-const isECMAImport = (code: string) => {
-  return code.includes('import') || code.includes('export')
 }
 
 const parseConsoleArgs = (args: any[]) => {
@@ -42,64 +31,57 @@ const executeComplexCode = async (
   request: ExecuteCodeRequest,
   callback: ExecuteCodeCallback
 ) => {
-  const { code, packages = [] } = request
+  const { code } = request
 
-  const userDataPath = app.isPackaged
-    ? path.resolve(app.getPath('userData'))
-    : path.resolve(__dirname, '..', '..', 'temp')
-
-  const projectPath = path.join(userDataPath, 'project')
+  const module = await newQuickJSAsyncWASMModule()
+  const runtime = module.newRuntime()
 
   try {
-    const exists = await fs
-      .access(projectPath)
-      .then(() => true)
-      .catch(() => false)
-    if (!exists) {
-      await fs.mkdir(projectPath)
-    }
-
-    const isECMA = isECMAImport(code)
-
-    await initPackageJson(projectPath, {
-      type: isECMA ? 'module' : 'commonjs',
-    })
-
-    if (packages.length > 0) {
-      callback({ status: 'package-installation-started' })
-      for await (const packageName of packages) {
-        const isInstalled = await isPackageInstalled(packageName, projectPath)
-        if (!isInstalled) {
-          await installPackage(packageName, { cwd: projectPath })
-        }
-      }
-      callback({ status: 'package-installation-finished' })
-    }
-
-    const filename = 'out.js'
-    const filepath = path.join(projectPath, filename)
-    await fs.writeFile(filepath, code, 'utf8')
-
     callback({ status: 'code-execution-started' })
-    const { stdout, stderr } = await execPromise('node out.js', {
-      cwd: projectPath,
-      timeout: DEFAULT_TIMEOUT,
-    })
-    if (stderr) {
-      throw new Error(stderr)
+
+    const context = runtime.newContext()
+
+    const output: Output[] = []
+
+    const consoleMethods = ['log', 'info', 'warn', 'error'] as Output['type'][]
+
+    const consoleHandle = context.newObject()
+
+    for (const method of consoleMethods) {
+      const logHandle = context.newFunction(method, (...args) => {
+        const nativeArgs = args.map(context.dump)
+        const value = parseConsoleArgs(nativeArgs).join(' ')
+        output.push({ type: method, value })
+      })
+
+      context.setProp(consoleHandle, method, logHandle)
+      logHandle.dispose()
     }
+
+    context.setProp(context.global, 'console', consoleHandle)
+    consoleHandle.dispose()
+
+    runtime.setModuleLoader(fetchPackageSource)
+
+    const result = await context.evalCodeAsync(code)
+    context.unwrapResult(result).dispose()
+
+    context.dispose()
+
     callback({ status: 'code-execution-finished' })
 
     return {
+      output,
       success: true,
-      output: stdout.trim(),
     }
   } catch (error) {
     return {
+      output: [],
       success: false,
-      output: '',
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
+  } finally {
+    runtime.dispose()
   }
 }
 
