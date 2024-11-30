@@ -20,7 +20,7 @@ const config: ForgeConfig = {
       name: '@electron-forge/publisher-github',
       config: {
         repository: {
-          owner: 'kjsahkjsdn',
+          owner: 'roberthgnz',
           name: 'js-blitz',
         },
         prerelease: true,
