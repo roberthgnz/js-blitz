@@ -14,19 +14,6 @@ export interface ExecuteCodeRequest {
   packages: string[]
 }
 
-const parseConsoleArgs = (args: any[]) => {
-  return args.map((arg) => {
-    if (typeof arg === 'object') {
-      try {
-        return JSON.stringify(arg, null, 2)
-      } catch (e) {
-        return '[Circular]'
-      }
-    }
-    return String(arg)
-  })
-}
-
 const executeComplexCode = async (
   request: ExecuteCodeRequest,
   callback: ExecuteCodeCallback
@@ -50,8 +37,7 @@ const executeComplexCode = async (
     for (const method of consoleMethods) {
       const logHandle = context.newFunction(method, (...args) => {
         const nativeArgs = args.map(context.dump)
-        const value = parseConsoleArgs(nativeArgs).join(' ')
-        output.push({ type: method, value })
+        output.push({ type: method, value: nativeArgs })
       })
 
       context.setProp(consoleHandle, method, logHandle)
@@ -105,20 +91,16 @@ const executeSimpleCode = async (
     const sandbox = {
       console: {
         log(...args: any[]) {
-          const value = parseConsoleArgs(args).join(' ')
-          output.push({ type: 'log', value })
+          output.push({ type: 'log', value: args })
         },
         info(...args: any[]) {
-          const value = parseConsoleArgs(args).join(' ')
-          output.push({ type: 'log', value })
+          output.push({ type: 'log', value: args })
         },
         warn(...args: any[]) {
-          const value = parseConsoleArgs(args).join(' ')
-          output.push({ type: 'log', value })
+          output.push({ type: 'log', value: args })
         },
         error(...args: any[]) {
-          const value = parseConsoleArgs(args).join(' ')
-          output.push({ type: 'log', value })
+          output.push({ type: 'log', value: args })
         },
       },
     }
