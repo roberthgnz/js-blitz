@@ -128,6 +128,39 @@ const executeCode = async () => {
   }
 }
 
+const parseConsoleValue = (args: any[]) => {
+  return args.map((arg) => {
+    if (typeof arg === 'object') {
+      try {
+        return JSON.stringify(arg, null, 2)
+      } catch (e) {
+        return '[Circular]'
+      }
+    }
+    return String(arg)
+  })
+}
+
+const printOutput = (output: any[]) => {
+  output.forEach((line: string) => {
+    const formattedOutput =
+      line.value
+        .map((arg) => {
+          if (typeof arg === 'object') {
+            try {
+              return JSON.stringify(arg, null, 2)
+            } catch (e) {
+              return '[Circular]'
+            }
+          }
+          return String(arg)
+        })
+        .join(' ') + '\n'
+
+    outputElement.value.innerHTML += formattedOutput
+  })
+}
+
 const runCode = async (code: string) => {
   console.time('runCode')
   try {
@@ -136,15 +169,12 @@ const runCode = async (code: string) => {
     if (result.error) {
       throw new Error(result.error)
     }
-    console.log(result.output)
+    printOutput(result.output)
   } catch (error) {
     isExecutingCode.value = false
     console.log(`Error: ${error.message}`)
   } finally {
     console.timeEnd('runCode')
-    monacoRef.value.editor.colorizeElement(outputElement.value, {
-      theme: themeColorStorage.value,
-    })
   }
 }
 
@@ -177,7 +207,6 @@ onMounted(() => {
   window.electronAPI.on('set-theme', async (theme: string) => {
     themeColorStorage.value = theme
     monacoRef.value.editor.setTheme(theme)
-    monacoRef.value.editor.colorizeElement(outputElement.value, { theme })
   })
 
   window.electronAPI.on('package-installation-started', () => {
@@ -244,11 +273,7 @@ onMounted(() => {
               color: activityBarForeground,
             }"
           />
-          <pre
-            ref="outputElement"
-            class="output"
-            data-lang="text/typescript"
-          ></pre>
+          <pre ref="outputElement" class="output"></pre>
         </div>
       </Pane>
     </Splitpanes>
