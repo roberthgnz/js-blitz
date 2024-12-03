@@ -9,7 +9,7 @@ export type OutputType = 'log' | 'info' | 'warn' | 'error'
 
 export type Output = {
   type: OutputType
-  value: string
+  value: any
 }
 
 export interface ExecuteResponse {
