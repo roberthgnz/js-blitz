@@ -142,22 +142,9 @@ const parseConsoleValue = (args: any[]) => {
 }
 
 const printOutput = (output: any[]) => {
-  output.forEach((line: string) => {
-    const formattedOutput =
-      line.value
-        .map((arg) => {
-          if (typeof arg === 'object') {
-            try {
-              return JSON.stringify(arg, null, 2)
-            } catch (e) {
-              return '[Circular]'
-            }
-          }
-          return String(arg)
-        })
-        .join(' ') + '\n'
-
-    outputElement.value.innerHTML += formattedOutput
+  output.forEach((line: any) => {
+    const formattedOutput = parseConsoleValue(line.value).join(' ') + '\n'
+    outputElement.value.innerHTML += `<span data-${line.type}-method>${formattedOutput}</span>`
   })
 }
 
@@ -321,6 +308,22 @@ onMounted(() => {
   white-space: pre-wrap;
   font-size: 14px;
   padding: 0 14px;
+}
+
+[data-log-method] {
+  color: #0f0;
+}
+
+[data-info-method] {
+  color: #0ff;
+}
+
+[data-warn-method] {
+  color: #ff0;
+}
+
+[data-error-method] {
+  color: #f00;
 }
 
 button {
