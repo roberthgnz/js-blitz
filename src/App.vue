@@ -144,7 +144,7 @@ const parseConsoleValue = (args: any[]) => {
 const printOutput = (output: any[]) => {
   output.forEach((line: any) => {
     const formattedOutput = parseConsoleValue(line.value).join(' ') + '\n'
-    outputElement.value.innerHTML += `<span data-${line.type}-method>${formattedOutput}</span>`
+    outputElement.value.innerHTML += `<span class="line" data-${line.type}-method>${formattedOutput}</span>`
   })
 }
 
@@ -308,6 +308,11 @@ onMounted(() => {
   white-space: pre-wrap;
   font-size: 14px;
   padding: 0 14px;
+}
+
+.output .line {
+  display: block;
+  min-height: 19px;
 }
 
 [data-log-method] {
