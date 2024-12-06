@@ -25,3 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.send('close-window'),
   showContextMenu: () => ipcRenderer.send('show-context-menu'),
 })
+
+// Define a custom preload script that will be used to set the background color
+window.addEventListener('DOMContentLoaded', () => {
+  document.body.style.backgroundColor =
+    window.localStorage.getItem('js-blitz-bg-color') || '#f8f9fa'
+})

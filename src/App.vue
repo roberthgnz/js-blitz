@@ -190,6 +190,16 @@ const handleResize = (event: any[]) => {
   panelSizesStorage.value = event.map(({ size }) => size)
 }
 
+watch(
+  editorBgColor,
+  (color) => {
+    if (!color) return
+    // Set background color
+    localStorage.setItem('js-blitz-bg-color', color)
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   window.electronAPI.on('set-theme', async (theme: string) => {
     themeColorStorage.value = theme
