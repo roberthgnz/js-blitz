@@ -14,6 +14,8 @@ export interface ExecuteCodeRequest {
   packages: string[]
 }
 
+const consoleMethods = ['log', 'info', 'warn', 'error'] as Output['type'][]
+
 const executeComplexCode = async (
   request: ExecuteCodeRequest,
   callback: ExecuteCodeCallback
@@ -29,8 +31,6 @@ const executeComplexCode = async (
     const context = runtime.newContext()
 
     const output: Output[] = []
-
-    const consoleMethods = ['log', 'info', 'warn', 'error'] as Output['type'][]
 
     const consoleHandle = context.newObject()
 
@@ -89,20 +89,15 @@ const executeSimpleCode = async (
     const output: Output[] = []
 
     const sandbox = {
-      console: {
-        log(...args: any[]) {
-          output.push({ type: 'log', value: args })
+      console: consoleMethods.reduce(
+        (acc, method) => {
+          acc[method] = (...args: any[]) => {
+            output.push({ type: method, value: args })
+          }
+          return acc
         },
-        info(...args: any[]) {
-          output.push({ type: 'log', value: args })
-        },
-        warn(...args: any[]) {
-          output.push({ type: 'log', value: args })
-        },
-        error(...args: any[]) {
-          output.push({ type: 'log', value: args })
-        },
-      },
+        {} as Record<Output['type'], (...args: any[]) => void>
+      ),
     }
 
     vm.createContext(sandbox)
