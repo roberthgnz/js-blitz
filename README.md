@@ -10,7 +10,7 @@ JSBlitz is an alternative to RunJS that allows you to run JavaScript code in a f
 
 - ⚡ Execute JavaScript/TypeScript code
 - 📦 Install and use npm packages on the fly
-- 🛡️ Uses a sandbox for secure code execution
+- 🛡️ Run code in a secure sandboxed environment
 - 🖥️ Electron-based desktop application
 - ✨ Monaco editor integration with syntax highlighting and code formatting
 
