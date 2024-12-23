@@ -81,3 +81,6 @@ Contributions are welcome! Please open an issue or submit a pull request.
 - [Vite](https://vitejs.dev/)
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/)
 - [Vue.js](https://vuejs.org/)
+
+
+[![DOWNLOAD](ruta/a/tu/imagen/download.png)](https://github.com/roberthgnz/js-blitz/releases/download/v0.4.0/JSBlitz-0.4.0.Setup.exe)
