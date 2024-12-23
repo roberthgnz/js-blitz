@@ -11,7 +11,7 @@
     "make": "rimraf out && electron-forge make",
     "publish": "dotenv -e .env electron-forge publish",
     "version": "git add -A src",
-    "postversion": "postversion && git push && git push --tags"
+    "postversion": "node ./scripts/update-download-link.js && git push && git push --tags"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",

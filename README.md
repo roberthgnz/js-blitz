@@ -4,7 +4,7 @@
 
 JSBlitz is an alternative to RunJS that allows you to run JavaScript code in a flash. It provides a simple and efficient way to execute JavaScript/TypeScript code with support for package installation.
 
-![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)
+[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](https://github.com/roberthgnz/js-blitz/releases/download/v0.4.0/JSBlitz-0.4.0.Setup.exe)
 
 ## Features
 

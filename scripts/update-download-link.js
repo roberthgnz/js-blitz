@@ -16,22 +16,23 @@ function updateDownloadLink(content) {
 
     const downloadUrl = `${repoName}/releases/download/v${version}/JSBlitz-${version}.Setup.exe`;
 
-    const imgRegex = /\[!\[DOWNLOAD\]\([^\)]+\)\]\([^\)]+\)/;
-    const newImgMarkdown = `[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](${downloadUrl})`;
+    // Updated regex to match both the image and an optional existing link
+    const imgRegex = /\[!\[DOWNLOAD\]\(https:\/\/github\.com\/user-attachments\/assets\/0b711e06-b18a-4b41-961f-c9e4c31df8b4\)\]\([^\)]*\)/g;
 
-    if (content.match(imgRegex)) {
-        return content.replace(imgRegex, newImgMarkdown);
-    }
+    const updatedContent = content.replace(imgRegex,
+        `[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](${downloadUrl})`
+    );
 
-    return `${content}\n\n${newImgMarkdown}`;
+    return updatedContent;
 }
+
 
 const updatedReadme = updateDownloadLink(readme);
 
 fs.writeFileSync(readmePath, updatedReadme, 'utf8');
 
 try {
-    execSync('git add .');
+    execSync('git add README.md');
     execSync(`git commit -m "docs: update download link to version ${version}"`);
 } catch (error) {
     console.error(error.message)
