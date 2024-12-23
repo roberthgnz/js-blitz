@@ -17,7 +17,7 @@ function updateDownloadLink(content) {
     const downloadUrl = `${repoName}/releases/download/v${version}/JSBlitz-${version}.Setup.exe`;
 
     const imgRegex = /\[!\[DOWNLOAD\]\([^\)]+\)\]\([^\)]+\)/;
-    const newImgMarkdown = `[![DOWNLOAD](ruta/a/tu/imagen/download.png)](${downloadUrl})`;
+    const newImgMarkdown = `[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](${downloadUrl})`;
 
     if (content.match(imgRegex)) {
         return content.replace(imgRegex, newImgMarkdown);

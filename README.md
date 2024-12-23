@@ -83,4 +83,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 - [Vue.js](https://vuejs.org/)
 
 
-[![DOWNLOAD](ruta/a/tu/imagen/download.png)](https://github.com/roberthgnz/js-blitz/releases/download/v0.4.0/JSBlitz-0.4.0.Setup.exe)
+[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](https://github.com/roberthgnz/js-blitz/releases/download/v0.4.0/JSBlitz-0.4.0.Setup.exe)
