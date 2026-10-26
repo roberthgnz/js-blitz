@@ -2013,7 +2013,7 @@ dependencies = [
 
 [[package]]
 name = "jsblitz"
-version = "0.4.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "dunce",
