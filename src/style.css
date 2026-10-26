@@ -7,3 +7,269 @@
   height: 100vh;
   overflow: hidden;
 }
+
+/* Theme tokens. The app sets --ui-bg/fg/accent/semantic colors from the
+   active editor theme; every surface below derives from them. */
+.app-shell {
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system,
+    BlinkMacSystemFont, Inter, system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo,
+    Consolas, monospace;
+  --ui-chrome: color-mix(in srgb, var(--ui-bg) 80%, #000);
+  --ui-sidebar: color-mix(in srgb, var(--ui-bg) 88%, #000);
+  --ui-popover: color-mix(in srgb, var(--ui-fg) 5%, var(--ui-bg));
+  --ui-surface: color-mix(in srgb, var(--ui-fg) 4%, var(--ui-sidebar));
+  --ui-surface-2: color-mix(in srgb, var(--ui-fg) 9%, var(--ui-bg));
+  --ui-input: color-mix(in srgb, var(--ui-bg) 72%, #000);
+  --ui-border: color-mix(in srgb, var(--ui-fg) 9%, transparent);
+  --ui-border-strong: color-mix(in srgb, var(--ui-fg) 16%, transparent);
+  --ui-muted: color-mix(in srgb, var(--ui-fg) 66%, var(--ui-bg));
+  --ui-subtle: color-mix(in srgb, var(--ui-fg) 44%, var(--ui-bg));
+  --ui-hover: color-mix(in srgb, var(--ui-fg) 7%, transparent);
+  --ui-active: color-mix(in srgb, var(--ui-fg) 12%, transparent);
+  --ui-accent-soft: color-mix(in srgb, var(--ui-accent) 15%, transparent);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ui-fg);
+  background: var(--ui-bg);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+}
+.app-shell button,
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  font: inherit;
+  color: inherit;
+}
+.app-shell button:focus-visible,
+.app-shell select:focus-visible,
+.app-shell [tabindex]:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+.app-shell ::selection {
+  background: color-mix(in srgb, var(--ui-accent) 35%, transparent);
+}
+.app-shell ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.app-shell ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--ui-border-strong) padding-box;
+}
+.app-shell ::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-subtle) padding-box;
+}
+.app-shell ::-webkit-scrollbar-track,
+.app-shell ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--ui-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--ui-surface-2);
+  color: var(--ui-muted);
+  font: 500 10.5px/1 var(--font-sans);
+  white-space: nowrap;
+}
+
+/* Shared controls used by the side panels. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 7px;
+  background: var(--ui-surface-2);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    opacity 0.12s;
+}
+.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-fg) 13%, var(--ui-bg));
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  border-color: transparent;
+  background: var(--ui-accent);
+  color: var(--ui-accent-fg) !important;
+}
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-accent) 85%, #fff);
+}
+.btn-primary:disabled {
+  background: var(--ui-surface-2);
+  color: var(--ui-subtle) !important;
+  opacity: 1;
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: var(--ui-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--ui-hover);
+  color: var(--ui-fg);
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.icon-btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-danger) 15%, transparent);
+  color: var(--ui-danger);
+}
+.input,
+.input-group {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 7px;
+  background: var(--ui-input);
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.input {
+  padding: 7px 10px;
+  outline: none;
+}
+.input.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  color: var(--ui-subtle);
+}
+.input-group-sm {
+  height: 28px;
+}
+.input-group input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ui-fg);
+}
+.input:focus,
+.input-group:focus-within {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-accent-soft);
+}
+.input::placeholder,
+.input-group input::placeholder {
+  color: var(--ui-subtle);
+}
+.field-label {
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.callout > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ui-accent);
+}
+.callout-error {
+  border-color: color-mix(in srgb, var(--ui-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--ui-danger) 8%, transparent);
+  color: var(--ui-danger);
+}
+.callout-error > svg {
+  color: var(--ui-danger);
+}
+.list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ui-surface-2);
+  color: var(--ui-muted);
+  font-size: 10.5px;
+  letter-spacing: 0;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 12px;
+  border: 1px dashed var(--ui-border-strong);
+  border-radius: 10px;
+  color: var(--ui-subtle);
+  text-align: center;
+  font-size: 12px;
+}
+.empty strong {
+  color: var(--ui-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+.empty > svg {
+  margin-bottom: 4px;
+  color: var(--ui-accent);
+  opacity: 0.8;
+}
+.hint {
+  margin: 0;
+  color: var(--ui-subtle);
+  font-size: 12px;
+}
