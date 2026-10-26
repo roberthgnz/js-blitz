@@ -94,6 +94,9 @@ async function test(name, fn) {
   } catch (error) {
     results.push({ name, success: false, durationMs: Date.now() - start, error: error.stack || String(error) })
     console.error(`FAIL ${name}: ${error.stack || error}`)
+    if (name.startsWith('real renderer')) {
+      console.error('SMOKE renderer diagnostics', await evaluate(`return { scripts: [...document.scripts].map(script => script.src), resources: performance.getEntriesByType('resource').slice(-20).map(entry => ({ name: entry.name, duration: entry.duration, size: entry.transferSize })), html: document.body.innerHTML.slice(0, 1000) }`))
+    }
   }
 }
 
@@ -123,7 +126,7 @@ async function finish(fatal) {
     }
   } catch (error) { console.error(`Screenshot failed: ${error.message}`) }
   fs.mkdirSync(path.dirname(reportPath), { recursive: true })
-  fs.writeFileSync(reportPath, JSON.stringify({ mainPath, rendererURL: window?.webContents.getURL(), results, rendererErrors, requests, screenshotPath }, null, 2))
+  fs.writeFileSync(reportPath, JSON.stringify({ mainPath, processId: process.pid, temporaryRoot, rendererURL: window?.webContents.getURL(), results, rendererErrors, requests, screenshotPath }, null, 2))
   console.log('SMOKE report written; destroying own windows')
   app.removeAllListeners('window-all-closed')
   app.on('window-all-closed', () => {})
@@ -137,7 +140,7 @@ async function finish(fatal) {
   const resolved = path.resolve(temporaryRoot)
   assert.equal(path.dirname(resolved).toLowerCase(), path.resolve(os.tmpdir()).toLowerCase())
   assert.ok(path.basename(resolved).startsWith('jsblitz-electron-smoke-'))
-  try { await fs.promises.rm(resolved, { recursive: true, force: true, maxRetries: 6, retryDelay: 100 }) }
+  try { fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 }) }
   catch (error) {
     results.push({ name: 'temporary userData cleanup', success: false, error: error.message })
     console.error(`Cleanup failed for ${resolved}: ${error.message}`)
@@ -166,10 +169,10 @@ async function run() {
   console.log(`SMOKE window created: ${window.webContents.getURL()}`)
   await waitFor(`window.electronAPI`, 'actual preload', 20000)
   console.log('SMOKE preload ready; page state:', await evaluate(`return { ready: document.readyState, text: document.body.innerText.slice(0, 1200), monaco: !!document.querySelector('.monaco-editor'), textarea: !!document.querySelector('.monaco-editor textarea') }`))
-  await waitFor(`document.querySelector('.monaco-editor textarea')`, 'Monaco', 20000)
-  console.log('SMOKE Monaco ready')
-
-  await evaluate(`
+  await test('real renderer, sandboxed preload and default Run output', async () => {
+    await waitFor(`document.querySelector('.monaco-editor textarea')`, 'Monaco', 10000)
+    console.log('SMOKE Monaco ready')
+    await evaluate(`
     const app = document.querySelector('#app').__vue_app__;
     const component = app._instance || app._container._vnode.component;
     window.__smoke = {
@@ -190,10 +193,8 @@ async function run() {
       },
     };
     return true;
-  `)
-  await waitFor(`window.__smoke.root.editor && document.querySelector('.output-content').textContent.includes('Hello from JSBlitz!')`, 'default live greeting', 20000)
-
-  await test('real renderer, sandboxed preload and default Run output', async () => {
+    `)
+    await waitFor(`window.__smoke.root.editor && document.querySelector('.output-content').textContent.includes('Hello from JSBlitz!')`, 'default live greeting', 10000)
     const state = await evaluate(`return {
       hasMonaco: !!document.querySelector('.monaco-editor textarea'),
       runVisible: [...document.querySelectorAll('button')].some(button => button.textContent.includes('Run') && button.getBoundingClientRect().width > 0),
