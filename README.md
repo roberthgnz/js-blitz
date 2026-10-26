@@ -117,7 +117,7 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## Acknowledgements
 
-- [Electron](https://www.electronjs.org/)
+- [Tauri](https://tauri.app/)
 - [Vite](https://vitejs.dev/)
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/)
 - [Vue.js](https://vuejs.org/)

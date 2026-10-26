@@ -4,7 +4,6 @@ import nodeDefinitions from 'virtual:editor-node-types'
 import { desktopAPI, isDesktopAvailable } from './desktop'
 
 export type MonacoInstance = typeof Monaco
-export type EditorLanguage = 'javascript' | 'typescript'
 
 export interface TypeDefinition {
   path: string
@@ -24,21 +23,6 @@ interface EditorTools {
 }
 
 const configuredEditors = new WeakMap<MonacoInstance, EditorTools>()
-
-export const EDITOR_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions =
-  {
-    automaticLayout: true,
-    formatOnPaste: true,
-    formatOnType: true,
-    hover: { enabled: true },
-    minimap: { enabled: false },
-    parameterHints: { enabled: true },
-    quickSuggestions: { other: true, comments: false, strings: true },
-    snippetSuggestions: 'top',
-    suggestOnTriggerCharacters: true,
-    tabCompletion: 'on',
-    wordBasedSuggestions: 'currentDocument',
-  }
 
 const snippets = [
   {
@@ -306,29 +290,6 @@ export async function refreshPackageTypes(
     }
   }
   return tools.packageLibraries.size
-}
-
-/** Bind this to VueMonacoEditor's path prop to preserve each tab's undo/view state. */
-export function editorModelPath(
-  tabId: string,
-  language: EditorLanguage = 'typescript'
-): string {
-  const extension = language === 'javascript' ? 'js' : 'ts'
-  return `file:///workspace/snippets/${encodeURIComponent(tabId)}.${extension}`
-}
-
-export function getOrCreateEditorModel(
-  monaco: MonacoInstance,
-  tabId: string,
-  language: EditorLanguage,
-  value = ''
-): Monaco.editor.ITextModel {
-  configureEditor(monaco)
-  const uri = monaco.Uri.parse(editorModelPath(tabId, language))
-  return (
-    monaco.editor.getModel(uri) ??
-    monaco.editor.createModel(value, language, uri)
-  )
 }
 
 /** Dispose at application teardown, rather than when changing tabs. */

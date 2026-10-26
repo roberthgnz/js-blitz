@@ -72,7 +72,7 @@ impl DesktopHost {
             .get_or_init(|| async {
                 let runtime = runtime_directory(app)?;
                 let user_data = user_data_directory(app)?;
-                let workspace = user_data.join("workspace");
+                let workspace = node_path(&user_data.join("workspace"));
                 std::fs::create_dir_all(&workspace)
                     .map_err(|error| format!("Cannot create the desktop workspace: {error}"))?;
                 let service = Sidecar::spawn(app, &runtime)?;
@@ -145,8 +145,8 @@ impl Sidecar {
             .shell()
             .sidecar("jsblitz-node")
             .map_err(|error| format!("Cannot locate the bundled Node runtime: {error}"))?
-            .arg(runtime.join("service.cjs"))
-            .current_dir(runtime)
+            .arg(node_path(&runtime.join("service.cjs")))
+            .current_dir(node_path(runtime))
             // The native shell API has no env_remove. Rebuild the inherited
             // environment without preload/module overrides, including Windows
             // spellings that differ only in case.
@@ -164,6 +164,10 @@ impl Sidecar {
                 return Err(format!("Cannot protect the desktop process tree: {error}"));
             }
         };
+        eprintln!(
+            "[jsblitz-native] Started guarded desktop service pid={}",
+            child.pid()
+        );
         let (terminated, _) = watch::channel(false);
         let service = Arc::new(Self {
             child: Mutex::new(Some(child)),
@@ -205,16 +209,33 @@ impl Sidecar {
                             }
                         }
                     }
-                    CommandEvent::Stderr(_) => {
-                        // Drain stderr without exposing provider credentials or
-                        // user code through native/frontend diagnostic logs.
+                    CommandEvent::Stderr(line) => {
+                        // Only report fixed error classes, never paths, stderr
+                        // content, user code, or credential-bearing frames.
+                        #[cfg(debug_assertions)]
+                        if !reader.initialized.load(Ordering::Acquire) {
+                            if let Some(class) = startup_error_class(&line) {
+                                eprintln!("[jsblitz-native] Desktop bootstrap error class={class}");
+                            }
+                        }
+                        #[cfg(not(debug_assertions))]
+                        let _ = line;
                     }
-                    CommandEvent::Terminated(_) | CommandEvent::Error(_) => break,
+                    CommandEvent::Terminated(status) => {
+                        failure = termination_message(status.code, status.signal);
+                        eprintln!("[jsblitz-native] {failure}");
+                        break;
+                    }
+                    CommandEvent::Error(_) => {
+                        failure = "The desktop service transport failed.".into();
+                        eprintln!("[jsblitz-native] {failure}");
+                        break;
+                    }
                     _ => {}
                 }
             }
             reader.fail_pending(&failure);
-            let _ = reader.terminated.send(true);
+            reader.terminated.send_replace(true);
             let _ = tauri::async_runtime::spawn_blocking(move || reader.force_stop()).await;
         });
         Ok(service)
@@ -280,9 +301,11 @@ impl Sidecar {
 
     fn fail_pending(&self, error: &str) {
         let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
-        pending.failure = Some(error.into());
+        // Preserve the original exit/protocol failure when cleanup also runs.
+        // Otherwise an early bootstrap error becomes only "not running".
+        let error = pending.failure.get_or_insert_with(|| error.into()).clone();
         for (_, sender) in pending.requests.drain() {
-            let _ = sender.send(Err(error.into()));
+            let _ = sender.send(Err(error.clone()));
         }
     }
 
@@ -326,20 +349,61 @@ fn runtime_directory(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| error.to_string())?
         .join("desktop");
     if directory.join("service.cjs").is_file() {
-        return Ok(directory);
+        return Ok(node_path(&directory));
     }
     #[cfg(debug_assertions)]
     {
         let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/desktop");
         if directory.join("service.cjs").is_file() {
-            return Ok(directory);
+            return Ok(node_path(&directory));
         }
     }
     Err("The bundled desktop service is missing. Prepare the desktop runtime before building JSBlitz.".into())
 }
 
+fn node_path(path: &Path) -> PathBuf {
+    // Tauri canonicalizes resource paths on Windows. Node 22's main-module
+    // resolver rejects the resulting \\?\ disk prefix with EISDIR. Simplify
+    // compatible disk paths without blindly stripping UNC/device prefixes.
+    dunce::simplified(path).to_path_buf()
+}
+
 fn has_legacy_data(directory: &Path) -> bool {
     directory.join("desktop-settings.json").is_file() || directory.join("workspace").is_dir()
+}
+
+fn termination_message(code: Option<i32>, signal: Option<i32>) -> String {
+    match (code, signal) {
+        (Some(code), _) => format!("The desktop service exited (code {code})."),
+        (_, Some(signal)) => format!("The desktop service exited (signal {signal})."),
+        _ => "The desktop service stopped unexpectedly.".into(),
+    }
+}
+
+#[cfg(any(debug_assertions, test))]
+fn startup_error_class(line: &[u8]) -> Option<&'static str> {
+    [
+        "ERR_MODULE_NOT_FOUND",
+        "MODULE_NOT_FOUND",
+        "ERR_REQUIRE_ESM",
+        "ERR_DLOPEN_FAILED",
+        "ERR_UNKNOWN_FILE_EXTENSION",
+        "ERR_INVALID_ARG_VALUE",
+        "ERR_INVALID_ARG_TYPE",
+        "SyntaxError",
+        "ReferenceError",
+        "TypeError",
+        "RangeError",
+        "ENOENT",
+        "EISDIR",
+        "EACCES",
+        "EPERM",
+    ]
+    .into_iter()
+    .find(|class| {
+        line.windows(class.len())
+            .any(|window| window == class.as_bytes())
+    })
 }
 
 fn allowed_environment_key(key: &OsStr) -> bool {
@@ -356,9 +420,12 @@ fn user_data_directory(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| error.to_string())?
         .join("js-blitz");
     if has_legacy_data(&legacy) {
-        return Ok(legacy);
+        return Ok(node_path(&legacy));
     }
-    app.path().app_data_dir().map_err(|error| error.to_string())
+    app.path()
+        .app_data_dir()
+        .map(|path| node_path(&path))
+        .map_err(|error| error.to_string())
 }
 
 fn validate_request(method: &str, params: &Value) -> Result<(), String> {
@@ -404,6 +471,145 @@ pub async fn desktop_invoke(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn node_paths_simplify_verbatim_disk_paths_and_preserve_unc_paths() {
+        assert_eq!(
+            node_path(Path::new(
+                r"\\?\C:\Program Files\JSBlitz\desktop\service.cjs"
+            )),
+            PathBuf::from(r"C:\Program Files\JSBlitz\desktop\service.cjs")
+        );
+        assert_eq!(
+            node_path(Path::new(r"\\?\C:\Users\example\AppData\Roaming\js-blitz")),
+            PathBuf::from(r"C:\Users\example\AppData\Roaming\js-blitz")
+        );
+        for path in [
+            r"\\server\share\desktop\service.cjs",
+            r"\\?\UNC\server\share\desktop\service.cjs",
+        ] {
+            assert_eq!(node_path(Path::new(path)), PathBuf::from(path));
+        }
+    }
+
+    #[cfg(all(windows, target_arch = "x86_64", target_env = "msvc"))]
+    #[test]
+    fn packaged_node_initializes_from_a_normalized_canonical_resource_path() {
+        use std::{
+            io::{Read, Write},
+            process::{Command, Stdio},
+        };
+
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let runtime = root.join("resources/desktop").canonicalize().unwrap();
+        let directory = std::env::temp_dir().join(format!(
+            "jsblitz-native-path-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let directory = node_path(&directory.canonicalize().unwrap());
+        let mut child = Command::new(root.join("binaries/jsblitz-node-x86_64-pc-windows-msvc.exe"))
+            .arg(node_path(&runtime.join("service.cjs")))
+            .current_dir(node_path(&runtime))
+            .env_clear()
+            .envs(std::env::vars_os().filter(|(key, _)| allowed_environment_key(key)))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let initialize = json!({
+            "id": "fixture-initialize", "method": "initialize",
+            "params": { "userDataPath": directory, "workspacePath": directory.join("workspace"), "credentialKey": "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio=" }
+        });
+        // Keep the pipe open until the explicit shutdown response: dropping it
+        // early would exercise the service's EOF exit instead of initialization.
+        let mut stdin = child.stdin.take().unwrap();
+        writeln!(stdin, "{initialize}").unwrap();
+        writeln!(
+            stdin,
+            "{{\"id\":\"fixture-shutdown\",\"method\":\"shutdown\",\"params\":null}}"
+        )
+        .unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(20);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            if std::time::Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!("The fixture service did not shut down.");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        let mut stdout = String::new();
+        let mut stderr = String::new();
+        child
+            .stdout
+            .take()
+            .unwrap()
+            .read_to_string(&mut stdout)
+            .unwrap();
+        child
+            .stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut stderr)
+            .unwrap();
+        drop(stdin);
+        assert!(status.success(), "Fixture Node failed: {stderr}");
+        let responses: Vec<Value> = stdout
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert!(
+            responses.contains(&json!({"id":"fixture-initialize", "result":null})),
+            "Fixture response: {stdout}; stderr: {stderr}"
+        );
+        assert!(
+            responses.contains(&json!({"id":"fixture-shutdown", "result":null})),
+            "Fixture response: {stdout}; stderr: {stderr}"
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn exit_diagnostics_include_only_numeric_status() {
+        assert_eq!(
+            termination_message(Some(1), None),
+            "The desktop service exited (code 1)."
+        );
+        assert_eq!(
+            termination_message(None, Some(9)),
+            "The desktop service exited (signal 9)."
+        );
+        assert_eq!(
+            termination_message(None, None),
+            "The desktop service stopped unexpectedly."
+        );
+    }
+
+    #[test]
+    fn bootstrap_diagnostics_report_fixed_classes_without_wire_content() {
+        assert_eq!(
+            startup_error_class(b"Error: MODULE_NOT_FOUND at C:/private/path secret-123"),
+            Some("MODULE_NOT_FOUND")
+        );
+        assert_eq!(
+            startup_error_class(b"TypeError: secret-123"),
+            Some("TypeError")
+        );
+        assert_eq!(
+            startup_error_class(b"secret-123 with no known error code"),
+            None
+        );
+    }
 
     #[test]
     fn excludes_inherited_node_bootstrap_overrides_case_insensitively() {

@@ -1,12 +1,5 @@
 import type { DesktopToolsBridge } from './desktop'
 
-export type WindowState = {
-  width: number
-  height: number
-  x: number
-  y: number
-}
-
 export type OutputType = 'log' | 'info' | 'warn' | 'error' | 'result'
 
 export type Output = {

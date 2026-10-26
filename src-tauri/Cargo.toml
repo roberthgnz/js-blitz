@@ -8,7 +8,7 @@ license = "MIT"
 
 [lib]
 name = "jsblitz_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -24,6 +24,7 @@ tokio = { version = "1", features = ["sync", "time"] }
 base64 = "0.22"
 getrandom = "0.2"
 zeroize = "1"
+dunce = "1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3.6.3", features = ["windows-native"] }

@@ -1,5 +1,4 @@
 {
-  "ts-node": { "compilerOptions": { "module": "CommonJS" } },
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
@@ -22,10 +21,8 @@
   "exclude": [
     "node_modules",
     "dist",
-    ".vite",
     "temp",
     "src-tauri/target",
-    "src-tauri/resources",
-    "tests/legacy"
+    "src-tauri/resources"
   ]
 }

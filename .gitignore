@@ -85,11 +85,7 @@ typings/
 # Webpack
 .webpack/
 
-# Vite
-.vite/
-
 # Build directory and temp files
-out/
 dist/
 temp/*
 
