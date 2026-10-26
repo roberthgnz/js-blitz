@@ -68,6 +68,23 @@ watch(
 watch(activeId, (value) => localStorage.setItem('js-blitz-active-tab', value))
 watch(live, (value) => localStorage.setItem('js-blitz-live', String(value)))
 
+// Synchronize reused language models before the wrapper activates them.
+watch(
+  () => [activeTab.value.id, activeTab.value.language],
+  () => {
+    const monaco = monacoRef.value
+    if (!monaco) return
+    const tab = activeTab.value
+    const uri = monaco.Uri.parse(
+      'file:///workspace/' +
+        tab.id +
+        (tab.language === 'typescript' ? '.ts' : '.js')
+    )
+    const model = monaco.editor.getModel(uri)
+    if (model && model.getValue() !== tab.code) model.setValue(tab.code)
+  },
+  { flush: 'sync' }
+)
 function switchTab(id: string) {
   activeId.value = id
   nextTick(() => {
@@ -92,6 +109,20 @@ function closeTab(id: string) {
   delete outputs.value[id]
   delete errors.value[id]
   delete running.value[id]
+  nextTick(() => {
+    const monaco = monacoRef.value
+    if (!monaco) return
+    for (const extension of ['ts', 'js']) {
+      const model = monaco.editor.getModel(
+        monaco.Uri.parse('file:///workspace/' + id + '.' + extension)
+      )
+      if (model && model !== editor.value?.getModel()) model.dispose()
+    }
+  })
+}
+function clearOutput() {
+  outputs.value[activeId.value] = []
+  errors.value[activeId.value] = ''
 }
 function updateProblems() {
   const model = editor.value?.getModel()
@@ -181,10 +212,11 @@ async function executeCode() {
   const tab = activeTab.value
   const id = tab.id
   clearTimeout(liveTimer)
-  if (running.value[id])
-    await window.electronAPI.cancelExecution(running.value[id])
+  const previousRun = running.value[id]
   const runId = crypto.randomUUID()
   running.value[id] = runId
+  if (previousRun) await window.electronAPI.cancelExecution(previousRun)
+  if (running.value[id] !== runId) return
   outputs.value[id] = []
   errors.value[id] = ''
   const start = performance.now()
@@ -200,8 +232,13 @@ async function executeCode() {
     if (!result.success)
       errors.value[id] = result.error || 'Code execution failed.'
     duration.value[id] = Math.round(performance.now() - start)
-    await loadPackages()
-    if (monacoRef.value) await refreshPackageTypes(monacoRef.value)
+    try {
+      await loadPackages()
+      if (monacoRef.value) await refreshPackageTypes(monacoRef.value)
+    } catch (error) {
+      packageError.value =
+        error instanceof Error ? error.message : String(error)
+    }
   } catch (error) {
     if (running.value[id] === runId)
       errors.value[id] = error instanceof Error ? error.message : String(error)
@@ -457,14 +494,7 @@ onBeforeUnmount(() => {
                 <span v-if="isRunning" class="running-indicator"
                   >Running…</span
                 ></span
-              ><button
-                @click="
-                  outputs[activeId] = []
-                  errors[activeId] = ''
-                "
-              >
-                Clear
-              </button>
+              ><button @click="clearOutput">Clear</button>
             </div>
             <div
               class="output-content"

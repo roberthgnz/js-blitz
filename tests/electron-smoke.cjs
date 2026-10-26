@@ -38,10 +38,16 @@ let window
 let fixture
 let finishing = false
 
+process.on('exit', code => {
+  if (!finishing) console.error(`SMOKE process exited prematurely (${code}); ${results.length} tests completed`)
+})
+app.on('before-quit', () => { if (!finishing) console.error('SMOKE app before-quit before tests finished') })
+app.on('window-all-closed', () => { if (!finishing) console.error('SMOKE all own windows closed before tests finished') })
+
 app.setPath('userData', temporaryRoot)
 app.on('browser-window-created', (_event, created) => {
   created.webContents.on('console-message', (_event, level, message) => {
-    if (level >= 3) rendererErrors.push(message)
+    if (level >= 3) { rendererErrors.push(message); console.error(`SMOKE renderer error: ${message}`) }
   })
   created.webContents.on('preload-error', (_event, preload, error) => {
     rendererErrors.push(`preload ${preload}: ${error.message}`)
@@ -49,6 +55,9 @@ app.on('browser-window-created', (_event, created) => {
   created.webContents.on('render-process-gone', (_event, detail) => {
     rendererErrors.push(`renderer exited: ${JSON.stringify(detail)}`)
   })
+  created.webContents.on('did-fail-load', (_event, code, description, url) => console.error(`SMOKE load failed ${code} ${description} ${url}`))
+  created.webContents.on('did-finish-load', () => console.log(`SMOKE loaded ${created.webContents.getURL()}`))
+  created.on('closed', () => { if (!finishing) console.error('SMOKE own window closed unexpectedly') })
 })
 
 function bounded(promise, ms, label) {
@@ -102,6 +111,10 @@ async function finish(fatal) {
   if (fatal) {
     results.push({ name: 'harness', success: false, error: fatal.stack || String(fatal) })
     console.error(fatal.stack || fatal)
+    if (window && !window.isDestroyed()) {
+      try { console.log('SMOKE fatal page state', await evaluate(`return { ready: document.readyState, api: typeof window.electronAPI, text: document.body.innerText.slice(0, 2000), html: document.body.innerHTML.slice(0, 2000) }`)) }
+      catch (error) { console.error(`Page state unavailable: ${error.message}`) }
+    }
   }
   try {
     if (window && !window.isDestroyed() && !window.webContents.isLoading()) {
@@ -113,6 +126,7 @@ async function finish(fatal) {
   fs.writeFileSync(reportPath, JSON.stringify({ mainPath, rendererURL: window?.webContents.getURL(), results, rendererErrors, requests, screenshotPath }, null, 2))
   console.log('SMOKE report written; destroying own windows')
   app.removeAllListeners('window-all-closed')
+  app.on('window-all-closed', () => {})
   for (const ownWindow of BrowserWindow.getAllWindows()) ownWindow.destroy()
   console.log('SMOKE own windows destroyed')
   if (fixture) {
@@ -150,8 +164,10 @@ async function run() {
   window.show()
   window.webContents.setBackgroundThrottling(false)
   console.log(`SMOKE window created: ${window.webContents.getURL()}`)
-  await waitFor(`document.querySelector('.monaco-editor textarea') && window.electronAPI`, 'Monaco and actual preload', 30000)
-  console.log('SMOKE Monaco and preload ready')
+  await waitFor(`window.electronAPI`, 'actual preload', 20000)
+  console.log('SMOKE preload ready; page state:', await evaluate(`return { ready: document.readyState, text: document.body.innerText.slice(0, 1200), monaco: !!document.querySelector('.monaco-editor'), textarea: !!document.querySelector('.monaco-editor textarea') }`))
+  await waitFor(`document.querySelector('.monaco-editor textarea')`, 'Monaco', 20000)
+  console.log('SMOKE Monaco ready')
 
   await evaluate(`
     const app = document.querySelector('#app').__vue_app__;

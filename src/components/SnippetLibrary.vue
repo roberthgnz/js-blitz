@@ -36,6 +36,14 @@ function save() {
     message.value = 'Enter a snippet name.'
     return
   }
+  if (
+    body.value.length > 300000 ||
+    (!selected.value && savedSnippets.value.length >= 500)
+  ) {
+    message.value =
+      'Use up to 500 snippets, with at most 300,000 characters each.'
+    return
+  }
   const entry = {
     id: selected.value || crypto.randomUUID(),
     name: name.value.trim(),

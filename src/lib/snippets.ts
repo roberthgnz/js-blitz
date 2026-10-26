@@ -33,9 +33,18 @@ export function parseSnippets(value: unknown): SavedSnippet[] {
 }
 let initial: SavedSnippet[] = []
 try {
-  initial = parseSnippets(
-    JSON.parse(localStorage.getItem('js-blitz-snippets') || '[]')
+  const stored: unknown = JSON.parse(
+    localStorage.getItem('js-blitz-snippets') || '[]'
   )
+  if (Array.isArray(stored)) {
+    for (const item of stored.slice(0, 500)) {
+      try {
+        initial.push(...parseSnippets([item]))
+      } catch {
+        /* Recover valid entries individually. */
+      }
+    }
+  }
 } catch {
   /* Start with an empty library if storage is damaged. */
 }
