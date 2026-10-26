@@ -74,18 +74,25 @@ import type { Output } from '../types'
         if (item instanceof Node) return `[${item.nodeName}]`
         if (item instanceof Map) {
           const entries: string[] = []
-          Map.prototype.forEach.call(item, (entry: unknown, key: unknown) => {
-            if (entries.length < 100 && remaining > 0)
-              entries.push(`${render(key, depth + 1, true)} => ${render(entry, depth + 1, true)}`)
-          })
-          return `Map(${item.size}) { ${entries.join(', ')}${item.size > entries.length ? ', …' : ''} }`
+          const iterator = Map.prototype.entries.call(item)
+          const size = Object.getOwnPropertyDescriptor(Map.prototype, 'size')!.get!.call(item) as number
+          while (entries.length < 100 && remaining > 0) {
+            const next = iterator.next()
+            if (next.done) break
+            entries.push(`${render(next.value[0], depth + 1, true)} => ${render(next.value[1], depth + 1, true)}`)
+          }
+          return `Map(${size}) { ${entries.join(', ')}${size > entries.length ? ', …' : ''} }`
         }
         if (item instanceof Set) {
           const entries: string[] = []
-          Set.prototype.forEach.call(item, (entry: unknown) => {
-            if (entries.length < 100 && remaining > 0) entries.push(render(entry, depth + 1, true))
-          })
-          return `Set(${item.size}) { ${entries.join(', ')}${item.size > entries.length ? ', …' : ''} }`
+          const iterator = Set.prototype.values.call(item)
+          const size = Object.getOwnPropertyDescriptor(Set.prototype, 'size')!.get!.call(item) as number
+          while (entries.length < 100 && remaining > 0) {
+            const next = iterator.next()
+            if (next.done) break
+            entries.push(render(next.value, depth + 1, true))
+          }
+          return `Set(${size}) { ${entries.join(', ')}${size > entries.length ? ', …' : ''} }`
         }
         if (item instanceof Date) return Date.prototype.toISOString.call(item)
         if (item instanceof RegExp) return RegExp.prototype.toString.call(item)

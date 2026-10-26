@@ -88,7 +88,7 @@ export function createBrowserExecution(
     if (removeFrame) release()
   }
   const start = () => {
-    if (disposed || executing || !ready || code === undefined || !channel) return
+    if (disposed || settled || executing || !ready || code === undefined || !channel) return
     executing = true
     channel.port1.postMessage({ kind: 'execute', runId: request.runId, code, resultName, guardName, timeoutMs })
   }
@@ -124,11 +124,11 @@ export function createBrowserExecution(
 
   // Defer setup so the caller always receives the handle before any output.
   queueMicrotask(() => {
-    if (disposed) return
+    if (disposed || settled) return
     try {
       worker = new Worker(new URL('./browser-compiler.worker.ts', import.meta.url), { type: 'module' })
       worker.onmessage = ({ data }: MessageEvent<{ success?: boolean; code?: string; error?: string }>) => {
-        if (disposed) return
+        if (disposed || settled) return
         worker?.terminate()
         worker = undefined
         if (!data.success || typeof data.code !== 'string') {

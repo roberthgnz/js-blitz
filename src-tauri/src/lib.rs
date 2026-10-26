@@ -1,3 +1,4 @@
+mod browser_preview;
 mod credentials;
 mod menus;
 mod process_guard;
@@ -37,6 +38,26 @@ pub fn run() {
             menus::show_context_menu
         ])
         .setup(move |app| {
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == "main")
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Missing main window configuration",
+                    )
+                })?;
+            tauri::WebviewWindowBuilder::from_config(app.handle(), window_config)?
+                .on_web_resource_request(|request, response| {
+                    browser_preview::configure_resource_policy(
+                        request.uri().path(),
+                        response.headers_mut(),
+                    );
+                })
+                .build()?;
             app.manage(menus::DesktopMenu(menus::build(app.handle())?));
             app.on_menu_event(menus::handle_event);
             let handle = app.handle().clone();

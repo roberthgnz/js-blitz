@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Parent policy mirrors Tauri, without permitting inline scripts. A meta
+         policy cannot simulate a response header on the separately loaded frame. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; font-src 'self' data:; frame-src 'self'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1420 ws://127.0.0.1:1420" />
+    <title>JSBlitz browser integration tests</title>
+    <style>
+      body { color: #ddd; background: #15151a; font: 15px system-ui; margin: 24px; }
+      button { padding: 8px 14px; } li { margin: 9px 0; white-space: pre-wrap; }
+      .pass { color: #84e1a2; } .fail { color: #ff9090; }
+      #previews { display: flex; flex-wrap: wrap; gap: 16px; }
+      section { border: 1px solid #444; padding: 12px; }
+      iframe { display: block; width: 370px; height: 210px; border: 0; background: white; }
+      #app-check { width: 100%; height: 480px; }
+    </style>
+  </head>
+  <body>
+    <h1>Browser integration tests</h1>
+    <p>Tests use real opaque-origin frames, canvas pixels, and compiler workers.</p>
+    <p>Run this URL on the existing Vite server. Reload to rerun. Add <code>?ui=1</code> to inspect the app's public selector and Monaco diagnostics.</p>
+    <p>Parent CSP mirrors Tauri. This does not test native IPC or response-header CSP intersection in a Tauri webview. HTTPS fetches permitted by the frame policy may still be restricted by a native response header.</p>
+    <strong id="summary">Starting…</strong>
+    <ol id="results"></ol>
+    <div id="previews"></div>
+    <script type="module" src="/tests/browser-integration.ts"></script>
+  </body>
+</html>
