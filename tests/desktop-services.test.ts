@@ -1,10 +1,5 @@
 import assert from 'node:assert/strict'
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  randomUUID,
-} from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import http from 'node:http'
@@ -15,15 +10,16 @@ import path from 'node:path'
 import { test, type TestContext } from 'node:test'
 import ts from 'typescript'
 
+import type { SecretStorage } from '../desktop/lib/settings'
 import type { AssistantRequest, DesktopSettingsUpdate } from '../types/desktop'
 
 const requireDependency = createRequire(
   path.join(process.cwd(), 'package.json')
 )
 
-// Load the real service modules, replacing only the Electron host. No live
-// credentials, Electron process, external network, or provider account is used.
-function loadModule(filename: string, imports: Record<string, unknown>) {
+// Load the real portable services with isolated settings state. No live
+// credentials, desktop host, external network, or provider account is used.
+function loadModule(filename: string, imports: Record<string, unknown> = {}) {
   const source = readFileSync(path.join(process.cwd(), filename), 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -45,49 +41,37 @@ function loadModule(filename: string, imports: Record<string, unknown>) {
   return loaded.exports
 }
 
+const loadSettings = () =>
+  loadModule(
+    'desktop/lib/settings.ts'
+  ) as typeof import('../desktop/lib/settings')
+
 async function harness(t: TestContext) {
   const directory = await mkdtemp(path.join(tmpdir(), 'js-blitz-desktop-test-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const wrappingKey = randomBytes(32)
   const host = { available: true, locked: false }
-  const safeStorage = {
-    isEncryptionAvailable: () => host.available,
-    getSelectedStorageBackend: () => 'gnome_libsecret',
+  const settings = loadSettings()
+  const portableStorage = settings.createSecretStorage(
+    wrappingKey.toString('base64')
+  )
+  const storage: SecretStorage = {
+    isAvailable: () => host.available,
     encryptString(value: string) {
-      const iv = randomBytes(12)
-      const cipher = createCipheriv('aes-256-gcm', wrappingKey, iv)
-      const encrypted = Buffer.concat([
-        cipher.update(value, 'utf8'),
-        cipher.final(),
-      ])
-      return Buffer.concat([iv, cipher.getAuthTag(), encrypted])
-    },
-    decryptString(value: Buffer) {
       if (host.locked) throw new Error('Mock credential store locked')
-      const decipher = createDecipheriv(
-        'aes-256-gcm',
-        wrappingKey,
-        value.subarray(0, 12)
-      )
-      decipher.setAuthTag(value.subarray(12, 28))
-      return Buffer.concat([
-        decipher.update(value.subarray(28)),
-        decipher.final(),
-      ]).toString('utf8')
+      return portableStorage.encryptString(value)
+    },
+    decryptString(value: string) {
+      if (host.locked) throw new Error('Mock credential store locked')
+      return portableStorage.decryptString(value)
     },
   }
-  const settings = loadModule('electron/lib/settings.ts', {
-    electron: { safeStorage },
-  }) as typeof import('../electron/lib/settings')
-  const assistant = loadModule('electron/lib/assistant.ts', {
+  const assistant = loadModule('desktop/lib/assistant.ts', {
     './settings': settings,
-  }) as typeof import('../electron/lib/assistant')
-  const reload = () =>
-    loadModule('electron/lib/settings.ts', {
-      electron: { safeStorage },
-    }) as typeof import('../electron/lib/settings')
+  }) as typeof import('../desktop/lib/assistant')
+  const reload = loadSettings
   t.after(() => assistant.cancelAllAssistantRequests())
-  await settings.initializeSettings(directory)
+  await settings.configureSettings(directory, storage)
   const update = (
     overrides: Partial<DesktopSettingsUpdate> = {}
   ): DesktopSettingsUpdate => ({
@@ -99,7 +83,16 @@ async function harness(t: TestContext) {
     },
     ...overrides,
   })
-  return { settings, assistant, directory, host, update, reload }
+  return {
+    settings,
+    assistant,
+    directory,
+    host,
+    storage,
+    wrappingKey,
+    update,
+    reload,
+  }
 }
 
 async function provider(t: TestContext, handle: http.RequestListener) {
@@ -123,6 +116,53 @@ const request = (id = randomUUID()): AssistantRequest => ({
   prompt: 'Explain this source and suggest a correction.',
   code: 'console.log(1 + 2)',
   history: [{ role: 'user', content: 'Help me understand this example.' }],
+})
+
+test('portable secret storage requires a canonical 32-byte key and authenticates randomized envelopes', () => {
+  const { createSecretStorage } = loadSettings()
+  const key = randomBytes(32).toString('base64')
+  const storage = createSecretStorage(key)
+  const sameKeyStorage = createSecretStorage(key)
+  assert.equal(storage.isAvailable(), true)
+  const credential = 'portable credential \u2713 \ud83d\udd10'
+  const first = storage.encryptString(credential)
+  const second = storage.encryptString(credential)
+  assert.match(first, /^aes-256-gcm:v1:[A-Za-z0-9+/]+={0,2}$/)
+  assert.notEqual(first, second)
+  assert.equal(sameKeyStorage.decryptString(first), credential)
+  assert.equal(storage.decryptString(second), credential)
+  assert.equal(storage.decryptString(storage.encryptString('')), '')
+  assert.throws(() =>
+    createSecretStorage(randomBytes(32).toString('base64')).decryptString(first)
+  )
+  const unavailable = createSecretStorage()
+  assert.equal(unavailable.isAvailable(), false)
+  assert.throws(() => unavailable.encryptString(credential), /unavailable/)
+  assert.throws(() => unavailable.decryptString(first), /unavailable/)
+  for (const invalid of [
+    '',
+    key.trimEnd() + '\n',
+    key.slice(0, -1),
+    randomBytes(31).toString('base64'),
+    randomBytes(33).toString('base64'),
+    Buffer.alloc(32).toString('base64').slice(0, -2) + 'B=',
+    Buffer.alloc(32, 255).toString('base64url'),
+  ]) {
+    assert.throws(
+      () => createSecretStorage(invalid),
+      /canonical base64.*32 bytes/
+    )
+  }
+  for (const malformed of [
+    'legacy-base64',
+    first.replace(':v1:', ':v2:'),
+    first + '\n',
+    'aes-256-gcm:v1:',
+    'aes-256-gcm:v1:' + Buffer.alloc(27).toString('base64'),
+    'aes-256-gcm:v1:!!!!',
+  ]) {
+    assert.throws(() => storage.decryptString(malformed))
+  }
 })
 
 test('environment CRUD persists, validates, and exposes only enabled overrides', async (t) => {
@@ -174,7 +214,8 @@ test('environment CRUD persists, validates, and exposes only enabled overrides',
 })
 
 test('credentials are encrypted at rest, write-only over IPC, retained, and explicitly removable', async (t) => {
-  const { settings, directory, host, update, reload } = await harness(t)
+  const { settings, directory, host, storage, update, reload } =
+    await harness(t)
   const credential = randomBytes(32).toString('hex')
   const change = update()
   change.assistant.apiKey = credential
@@ -189,13 +230,13 @@ test('credentials are encrypted at rest, write-only over IPC, retained, and expl
   const filename = path.join(directory, 'desktop-settings.json')
   const storedText = await readFile(filename, 'utf8')
   assert.equal(storedText.includes(credential), false)
-  assert.equal(
-    typeof JSON.parse(storedText).assistant.encryptedApiKey,
-    'string'
+  assert.match(
+    JSON.parse(storedText).assistant.encryptedApiKey,
+    /^aes-256-gcm:v1:/
   )
   assert.equal(settings.getAssistantConfiguration().apiKey, credential)
   const reopened = reload()
-  await reopened.initializeSettings(directory)
+  await reopened.initializeSettings(directory, storage)
   assert.equal(reopened.getAssistantConfiguration().apiKey, credential)
   assert.equal((await settings.saveDesktopSettings(update())).success, true)
   assert.equal(settings.getAssistantConfiguration().apiKey, credential)
@@ -211,6 +252,17 @@ test('credentials are encrypted at rest, write-only over IPC, retained, and expl
     /unlocked/
   )
   assert.equal(settings.getDesktopSettings().assistant.hasApiKey, true)
+  assert.throws(
+    () => settings.getAssistantConfiguration(),
+    /could not be unlocked/
+  )
+  const replaceWhileLocked = update()
+  replaceWhileLocked.assistant.apiKey = randomBytes(20).toString('hex')
+  assert.equal(
+    (await settings.saveDesktopSettings(replaceWhileLocked)).success,
+    false
+  )
+  assert.equal(await readFile(filename, 'utf8'), storedText)
   const remove = update()
   remove.assistant.clearApiKey = true
   assert.equal((await settings.saveDesktopSettings(remove)).success, true)
@@ -218,6 +270,196 @@ test('credentials are encrypted at rest, write-only over IPC, retained, and expl
   assert.equal(
     settings.getDesktopSettings().assistant.credentialError,
     undefined
+  )
+})
+
+test('a wrong wrapping key retains credentials, blocks provider calls, and can be unlocked on the same path', async (t) => {
+  const { settings, assistant, directory, storage, wrappingKey, update } =
+    await harness(t)
+  let calls = 0
+  const endpoint = await provider(t, (_incoming, response) => {
+    calls++
+    response.end('{}')
+  })
+  const change = update()
+  const credential = randomBytes(24).toString('hex')
+  change.assistant.endpoint = endpoint
+  change.assistant.apiKey = credential
+  assert.equal((await settings.saveDesktopSettings(change)).success, true)
+  const filename = path.join(directory, 'desktop-settings.json')
+  const storedText = await readFile(filename, 'utf8')
+  assert.equal(storedText.includes(wrappingKey.toString('base64')), false)
+  await settings.configureSettings(
+    directory,
+    settings.createSecretStorage(randomBytes(32).toString('base64'))
+  )
+  const visible = settings.getDesktopSettings()
+  assert.equal(visible.assistant.secureStorageAvailable, true)
+  assert.equal(visible.assistant.hasApiKey, true)
+  assert.match(
+    visible.assistant.credentialError || '',
+    /could not be unlocked.*Enter it again/
+  )
+  assert.equal(JSON.stringify(visible).includes(credential), false)
+  assert.throws(
+    () => settings.getAssistantConfiguration(),
+    /could not be unlocked/
+  )
+  assert.equal((await assistant.askAssistant(request())).success, false)
+  assert.equal(calls, 0)
+  assert.equal(await readFile(filename, 'utf8'), storedText)
+  await settings.configureSettings(directory, storage)
+  assert.equal(settings.getAssistantConfiguration().apiKey, credential)
+  assert.equal(
+    settings.getDesktopSettings().assistant.credentialError,
+    undefined
+  )
+})
+
+test('tampering with an envelope IV, tag, or ciphertext never releases or removes the saved key', async (t) => {
+  const { settings, directory, storage, update, reload } = await harness(t)
+  const change = update()
+  change.assistant.apiKey = randomBytes(24).toString('hex')
+  assert.equal((await settings.saveDesktopSettings(change)).success, true)
+  const filename = path.join(directory, 'desktop-settings.json')
+  const original = JSON.parse(await readFile(filename, 'utf8'))
+  const prefix = 'aes-256-gcm:v1:'
+  const encoded = original.assistant.encryptedApiKey.slice(prefix.length)
+  const tampered = [0, 12, 28].map((offset) => {
+    const bytes = Buffer.from(encoded, 'base64')
+    bytes[offset] ^= 1
+    return prefix + bytes.toString('base64')
+  })
+  tampered.push(
+    prefix + encoded + '\n',
+    prefix + Buffer.alloc(27).toString('base64')
+  )
+  for (const encryptedApiKey of tampered) {
+    const stored = {
+      ...original,
+      assistant: { ...original.assistant, encryptedApiKey },
+    }
+    await writeFile(filename, JSON.stringify(stored))
+    const reopened = reload()
+    await reopened.configureSettings(directory, storage)
+    assert.equal(reopened.getDesktopSettings().assistant.hasApiKey, true)
+    assert.match(
+      reopened.getDesktopSettings().assistant.credentialError || '',
+      /could not be unlocked/
+    )
+    assert.throws(
+      () => reopened.getAssistantConfiguration(),
+      /could not be unlocked/
+    )
+    assert.equal((await reopened.saveDesktopSettings(update())).success, true)
+    assert.equal(
+      JSON.parse(await readFile(filename, 'utf8')).assistant.encryptedApiKey,
+      encryptedApiKey
+    )
+  }
+})
+
+test('missing or locked storage retains portable keys and unavailable errors fail closed', async (t) => {
+  const { settings, directory, storage, host, update } = await harness(t)
+  const change = update()
+  change.assistant.apiKey = randomBytes(24).toString('hex')
+  assert.equal((await settings.saveDesktopSettings(change)).success, true)
+  const filename = path.join(directory, 'desktop-settings.json')
+  const encryptedApiKey = JSON.parse(await readFile(filename, 'utf8')).assistant
+    .encryptedApiKey
+  await settings.configureSettings(directory)
+  assert.equal(
+    settings.getDesktopSettings().assistant.secureStorageAvailable,
+    false
+  )
+  assert.equal(settings.getDesktopSettings().assistant.hasApiKey, true)
+  assert.match(
+    settings.getDesktopSettings().assistant.credentialError || '',
+    /storage is unavailable/
+  )
+  assert.throws(
+    () => settings.getAssistantConfiguration(),
+    /storage is unavailable/
+  )
+  assert.equal((await settings.saveDesktopSettings(update())).success, true)
+  assert.equal(
+    JSON.parse(await readFile(filename, 'utf8')).assistant.encryptedApiKey,
+    encryptedApiKey
+  )
+  await settings.configureSettings(directory, storage)
+  host.available = false
+  assert.throws(
+    () => settings.getAssistantConfiguration(),
+    /storage is unavailable/
+  )
+  await settings.configureSettings(directory, {
+    ...storage,
+    isAvailable: () => {
+      throw new Error('Host credential store failure')
+    },
+  })
+  assert.equal(
+    settings.getDesktopSettings().assistant.secureStorageAvailable,
+    false
+  )
+  assert.throws(
+    () => settings.getAssistantConfiguration(),
+    /storage is unavailable/
+  )
+})
+
+test('legacy Electron credentials are retained with an explicit reentry error until replaced or removed', async (t) => {
+  const { settings, directory, storage, update, reload } = await harness(t)
+  assert.equal((await settings.saveDesktopSettings(update())).success, true)
+  const filename = path.join(directory, 'desktop-settings.json')
+  const stored = JSON.parse(await readFile(filename, 'utf8'))
+  const legacy = randomBytes(48).toString('base64')
+  stored.assistant.encryptedApiKey = legacy
+  await writeFile(filename, JSON.stringify(stored))
+  const reopened = reload()
+  await reopened.configureSettings(directory, storage)
+  assert.equal(reopened.getDesktopSettings().assistant.hasApiKey, true)
+  assert.match(
+    reopened.getDesktopSettings().assistant.credentialError || '',
+    /old Electron.*cannot be unlocked.*Reenter/
+  )
+  assert.throws(
+    () => reopened.getAssistantConfiguration(),
+    /old Electron.*Reenter/
+  )
+  assert.equal((await reopened.saveDesktopSettings(update())).success, true)
+  assert.equal(
+    JSON.parse(await readFile(filename, 'utf8')).assistant.encryptedApiKey,
+    legacy
+  )
+  const replacement = randomBytes(20).toString('hex')
+  const replace = update()
+  replace.assistant.apiKey = replacement
+  assert.equal((await reopened.saveDesktopSettings(replace)).success, true)
+  assert.equal(reopened.getAssistantConfiguration().apiKey, replacement)
+  assert.equal(
+    reopened.getDesktopSettings().assistant.credentialError,
+    undefined
+  )
+  const portable = JSON.parse(await readFile(filename, 'utf8')).assistant
+    .encryptedApiKey
+  assert.match(portable, /^aes-256-gcm:v1:/)
+  stored.assistant.encryptedApiKey = legacy
+  await writeFile(filename, JSON.stringify(stored))
+  const locked = reload()
+  await locked.configureSettings(directory)
+  assert.match(
+    locked.getDesktopSettings().assistant.credentialError || '',
+    /old Electron/
+  )
+  const remove = update()
+  remove.assistant.clearApiKey = true
+  assert.equal((await locked.saveDesktopSettings(remove)).success, true)
+  assert.equal(locked.getDesktopSettings().assistant.hasApiKey, false)
+  assert.equal(locked.getAssistantConfiguration().apiKey, undefined)
+  assert.equal(
+    'encryptedApiKey' in JSON.parse(await readFile(filename, 'utf8')).assistant,
+    false
   )
 })
 
@@ -243,6 +485,85 @@ test('unavailable secret storage rejects key persistence but permits local no-ke
   )
 })
 
+test('configuration and saves share a queue so changes persist to the configured path', async (t) => {
+  const { settings, directory, update } = await harness(t)
+  const nextDirectory = path.join(directory, 'next')
+  const lastDirectory = path.join(directory, 'last')
+  const lastStorage = settings.createSecretStorage(
+    randomBytes(32).toString('base64')
+  )
+  const change = update({
+    environment: [
+      { id: 'queued', name: 'QUEUED_VALUE', value: 'last path', enabled: true },
+    ],
+  })
+  const credential = randomBytes(20).toString('hex')
+  change.assistant.apiKey = credential
+  const firstConfiguration = settings.configureSettings(nextDirectory)
+  const lastConfiguration = settings.configureSettings(
+    lastDirectory,
+    lastStorage
+  )
+  const save = settings.saveDesktopSettings(change)
+  await Promise.all([firstConfiguration, lastConfiguration])
+  assert.equal((await save).success, true)
+  assert.equal(settings.getAssistantConfiguration().apiKey, credential)
+  const stored = JSON.parse(
+    await readFile(path.join(lastDirectory, 'desktop-settings.json'), 'utf8')
+  )
+  assert.deepEqual(stored.environment, change.environment)
+  assert.equal(
+    lastStorage.decryptString(stored.assistant.encryptedApiKey),
+    credential
+  )
+  await assert.rejects(
+    readFile(path.join(nextDirectory, 'desktop-settings.json')),
+    { code: 'ENOENT' }
+  )
+  await assert.rejects(
+    readFile(path.join(directory, 'desktop-settings.json')),
+    { code: 'ENOENT' }
+  )
+})
+
+test('failed configuration preserves the previous path, settings, and wrapping key without poisoning the queue', async (t) => {
+  const { settings, directory, storage, update } = await harness(t)
+  const change = update()
+  const credential = randomBytes(20).toString('hex')
+  change.assistant.apiKey = credential
+  assert.equal((await settings.saveDesktopSettings(change)).success, true)
+  const brokenDirectory = path.join(directory, 'broken')
+  await mkdir(brokenDirectory)
+  const brokenFile = path.join(brokenDirectory, 'desktop-settings.json')
+  await writeFile(brokenFile, 'invalid JSON')
+  await assert.rejects(
+    settings.configureSettings(brokenDirectory),
+    /could not be loaded/
+  )
+  assert.equal(settings.getAssistantConfiguration().apiKey, credential)
+  assert.equal(
+    settings.getDesktopSettings().assistant.secureStorageAvailable,
+    true
+  )
+  assert.equal((await settings.saveDesktopSettings(update())).success, true)
+  assert.equal(await readFile(brokenFile, 'utf8'), 'invalid JSON')
+  const original = JSON.parse(
+    await readFile(path.join(directory, 'desktop-settings.json'), 'utf8')
+  )
+  assert.equal(
+    storage.decryptString(original.assistant.encryptedApiKey),
+    credential
+  )
+  const recoveredDirectory = path.join(directory, 'recovered')
+  await settings.configureSettings(recoveredDirectory)
+  assert.equal((await settings.saveDesktopSettings(update())).success, true)
+  assert.equal(
+    settings.getDesktopSettings().assistant.secureStorageAvailable,
+    false
+  )
+  assert.equal(settings.getDesktopSettings().assistant.hasApiKey, false)
+})
+
 test('failed disk writes preserve in-memory settings and unreadable settings are never overwritten', async (t) => {
   const { settings, directory, update } = await harness(t)
   const filename = path.join(directory, 'desktop-settings.json')
@@ -251,9 +572,7 @@ test('failed disk writes preserve in-memory settings and unreadable settings are
   assert.equal(settings.getDesktopSettings().assistant.model, '')
   await rm(filename, { recursive: true })
   await writeFile(filename, 'invalid JSON')
-  const second = loadModule('electron/lib/settings.ts', {
-    electron: { safeStorage: {} },
-  }) as typeof import('../electron/lib/settings')
+  const second = loadSettings()
   await assert.rejects(
     second.initializeSettings(directory),
     /could not be loaded/

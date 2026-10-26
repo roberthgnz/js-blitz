@@ -39,23 +39,29 @@ export interface InstalledPackage {
   version: string
 }
 
-export interface ElectronAPI extends DesktopToolsBridge {
-  on(event: string, callback: (...args: any[]) => void): () => void
+export interface DesktopEventMap {
+  'set-theme': [name: string]
+  'execution-output': [event: { runId: string; output: Output }]
+  'package-installation-started': []
+  'package-installation-finished': []
+  'code-execution-started': []
+  'code-execution-finished': []
+}
+
+export interface DesktopAPI extends DesktopToolsBridge {
+  on<Event extends keyof DesktopEventMap>(
+    event: Event,
+    callback: (...args: DesktopEventMap[Event]) => void
+  ): () => void
   executeCode(request: ExecuteRequest): Promise<ExecuteResponse>
   cancelExecution(runId: string): Promise<void>
   listPackages(): Promise<InstalledPackage[]>
   installPackage(name: string): Promise<void>
   getTypeDefinitions(): Promise<TypeDefinition[]>
-  minimizeWindow(): void
-  maximizeWindow(): void
-  closeWindow(): void
-  showContextMenu(): void
-}
-
-declare global {
-  interface Window {
-    electronAPI: ElectronAPI
-  }
+  minimizeWindow(): Promise<void>
+  maximizeWindow(): Promise<void>
+  closeWindow(): Promise<void>
+  showContextMenu(): Promise<void>
 }
 
 type ExecuteCodeStatus =

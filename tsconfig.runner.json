@@ -9,11 +9,10 @@
     "skipLibCheck": true
   },
   "include": [
-    "electron/lib/coderunner.ts",
-    "electron/lib/execution-worker.ts",
-    "electron/lib/packages.ts",
+    "desktop/**/*.ts",
     "tests/runner.test.ts",
     "tests/packages.test.ts",
-    "vite.runner.config.ts"
+    "tests/desktop-services.test.ts",
+    "tests/desktop-service.test.ts"
   ]
 }

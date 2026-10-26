@@ -1,35 +1,63 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 
+import { desktopAPI, isDesktopAvailable } from '../lib/desktop'
 import Close from './icons/Close.vue'
 import Maximize from './icons/Maximize.vue'
 import Minimize from './icons/Minimize.vue'
 import Restore from './icons/Restore.vue'
 
 const isMaximized = ref(false)
+const windowError = ref('')
 
-const minimizeWindow = () => {
-  isMaximized.value = false
-  window.electronAPI.minimizeWindow()
+const minimizeWindow = async () => {
+  try {
+    await desktopAPI.minimizeWindow()
+    windowError.value = ''
+  } catch (error) {
+    windowError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
-const maximizeWindow = () => {
-  isMaximized.value = !isMaximized.value
-  window.electronAPI.maximizeWindow()
+const maximizeWindow = async () => {
+  try {
+    await desktopAPI.maximizeWindow()
+    isMaximized.value = !isMaximized.value
+    windowError.value = ''
+  } catch (error) {
+    windowError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
-const closeWindow = () => {
-  window.electronAPI.closeWindow()
+const closeWindow = async () => {
+  try {
+    await desktopAPI.closeWindow()
+    windowError.value = ''
+  } catch (error) {
+    windowError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 </script>
 
 <template>
-  <div id="titlebar" class="w-full flex items-center justify-between">
-    <img src="../../icon-square.png" alt="Logo" class="size-8" />
+  <div
+    id="titlebar"
+    class="w-full flex items-center justify-between"
+    data-tauri-drag-region
+  >
+    <img
+      src="../../icon-square.png"
+      alt="Logo"
+      class="size-8"
+      data-tauri-drag-region
+      draggable="false"
+    />
+    <span v-if="windowError" role="alert">{{ windowError }}</span>
     <div>
       <button
         type="button"
         title="Minimize"
+        :disabled="!isDesktopAvailable()"
         class="action px-4 py-2"
         @click="minimizeWindow"
       >
@@ -38,6 +66,7 @@ const closeWindow = () => {
       <button
         type="button"
         :title="isMaximized ? 'Restore' : 'Maximize'"
+        :disabled="!isDesktopAvailable()"
         class="action px-4 py-2"
         @click="maximizeWindow"
       >
@@ -47,6 +76,7 @@ const closeWindow = () => {
       <button
         type="button"
         title="Close"
+        :disabled="!isDesktopAvailable()"
         class="action action--close px-4 py-2"
         @click="closeWindow"
       >
@@ -59,14 +89,13 @@ const closeWindow = () => {
 <style>
 #titlebar {
   -webkit-user-select: none;
-  -webkit-app-region: drag;
+  user-select: none;
 }
 
 button.action {
   opacity: 0.75;
   color: var(--buttonForeground);
   transition: all 0.2s;
-  -webkit-app-region: no-drag;
 }
 
 button.action:hover {

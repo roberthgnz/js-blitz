@@ -1,6 +1,8 @@
 import type * as Monaco from 'monaco-editor'
 import nodeDefinitions from 'virtual:editor-node-types'
 
+import { desktopAPI, isDesktopAvailable } from './desktop'
+
 export type MonacoInstance = typeof Monaco
 export type EditorLanguage = 'javascript' | 'typescript'
 
@@ -269,16 +271,9 @@ export async function refreshPackageTypes(
   configureEditor(monaco)
   const tools = configuredEditors.get(monaco)!
   const version = ++tools.refreshVersion
-  const api = (
-    window as unknown as {
-      electronAPI?: {
-        getTypeDefinitions?: () => Promise<TypeDefinition[]>
-      }
-    }
-  ).electronAPI
-  if (!api?.getTypeDefinitions) return 0
+  if (!isDesktopAvailable()) return 0
 
-  const definitions = await api.getTypeDefinitions()
+  const definitions = await desktopAPI.getTypeDefinitions()
   if (
     configuredEditors.get(monaco) !== tools ||
     tools.refreshVersion !== version

@@ -2,22 +2,22 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, test } from 'node:test'
 
 import {
+  cancelAllExecutions,
   cancelExecution,
   configureRunner,
   executeCode,
   type RunnerOutput,
-} from '../electron/lib/coderunner'
+} from '../desktop/lib/coderunner'
 
 let workspacePath: string
 const workerPath =
   process.env.JSBLITZ_TEST_WORKER ||
-  path.resolve('electron/lib/execution-worker.ts')
+  path.resolve('desktop/lib/execution-worker.ts')
 
 before(async () => {
   workspacePath = await mkdtemp(path.join(tmpdir(), 'jsblitz-runner-test-'))
@@ -158,35 +158,46 @@ test('streams logs before completion and waits for unawaited asynchronous timers
   )
 })
 
-test('utility-process transport finishes after user timers despite its persistent host handle', async () => {
-  const shimPath = path.join(workspacePath, 'utility-transport.cjs')
-  const loaderPath = createRequire(__filename).resolve('tsx/cjs')
-  await writeFile(
-    shimPath,
-    `require(${JSON.stringify(loaderPath)});
-setInterval(() => {}, 60000);
-process.parentPort = {
-  once(event, listener) { process.once(event, data => listener({ data })); },
-  postMessage(message) { process.send(message); }
-};
-require(${JSON.stringify(workerPath)});`
+test('Node IPC drains nested timers and file operations before completion', async () => {
+  const response = await executeCode({
+    code: `console.log('start'); setTimeout(() => {
+      require('node:fs').readFile(__filename, () => {
+        setTimeout(() => console.log('drained'), 30)
+      })
+    }, 30)`,
+    timeoutMs: 5000,
+  })
+  assert.equal(response.success, true, response.error)
+  assert.deepEqual(
+    response.output
+      .filter((entry) => entry.type === 'log')
+      .map((entry) => entry.value),
+    [['start'], ['drained']]
   )
-  configureRunner({ workspacePath, workerPath: shimPath })
-  try {
-    const response = await executeCode({
-      code: `console.log('start'); setTimeout(() => console.log('drained'), 80)`,
-      timeoutMs: 5000,
-    })
-    assert.equal(response.success, true, response.error)
-    assert.deepEqual(
-      response.output
-        .filter((entry) => entry.type === 'log')
-        .map((entry) => entry.value),
-      [['start'], ['drained']]
+})
+
+test('service-wide cancellation terminates every active run', async () => {
+  const started: Promise<void>[] = []
+  const pending = [randomUUID(), randomUUID()].map((runId) => {
+    let ready!: () => void
+    started.push(
+      new Promise<void>((resolve) => {
+        ready = resolve
+      })
     )
-  } finally {
-    configureRunner({ workspacePath, workerPath })
+    return executeCode(
+      { runId, code: `console.log('ready'); setInterval(() => {}, 1000)` },
+      undefined,
+      () => ready()
+    )
+  })
+  await Promise.all(started)
+  cancelAllExecutions()
+  for (const response of await Promise.all(pending)) {
+    assert.equal(response.success, false)
+    assert.match(response.error!, /cancelled/)
   }
+  assert.equal((await executeCode({ code: '42' })).success, true)
 })
 
 test('retains output and finishes status exactly once when code throws', async () => {

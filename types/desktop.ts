@@ -80,7 +80,7 @@ export type AssistantResponse =
       errorCode: AssistantErrorCode
     }
 
-/** Merge this interface into the existing preload electronAPI declaration. */
+/** Settings and assistant methods exposed by the native desktop bridge. */
 export interface DesktopToolsBridge {
   getDesktopSettings(): Promise<DesktopSettings>
   saveDesktopSettings(

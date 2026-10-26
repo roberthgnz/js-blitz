@@ -92,3 +92,9 @@ typings/
 out/
 dist/
 temp/*
+
+# Generated Tauri runtime, native builds and schemas
+src-tauri/target/
+src-tauri/resources/desktop/
+src-tauri/binaries/jsblitz-node-*
+src-tauri/gen/

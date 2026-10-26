@@ -4,7 +4,7 @@
 
 JSBlitz is an alternative to RunJS that allows you to run JavaScript code in a flash. It provides a simple and efficient way to execute JavaScript/TypeScript code with support for package installation.
 
-[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](https://github.com/roberthgnz/js-blitz/releases/download/v0.4.0/JSBlitz-0.4.0.Setup.exe)
+[![DOWNLOAD](https://github.com/user-attachments/assets/0b711e06-b18a-4b41-961f-c9e4c31df8b4)](https://github.com/roberthgnz/js-blitz/releases/latest)
 
 ## Features
 
@@ -29,13 +29,15 @@ Use **Run** or **Ctrl/Cmd+Enter** to execute the active tab. **Live** evaluates 
 
 In the assistant, configure an OpenAI-compatible base URL and model. A hosted provider may need an API key; a local endpoint such as `http://localhost:11434/v1` can work without one. Keys are stored using the operating system's encrypted credential support. Code sharing is opt-in for each conversation request. Applying an AI suggestion opens a new tab with Live disabled so it can be reviewed before execution.
 
-Every run uses a fresh, separately terminable Node process with full local Node.js access. The editor window remains isolated from Node; the execution process is not a security sandbox for untrusted code. Package installation and hosted AI calls require network access; editing and previously installed packages work offline.
+JSBlitz uses Tauri 2, Rust and the system WebView for its desktop window. A bundled Node.js runtime runs the desktop service and starts a fresh, separately terminable worker for each execution. This preserves native Node module loading, npm and TypeScript without requiring Node.js on the installed user's system. The editor window remains isolated from Node; execution has full local Node.js access and is not a security sandbox for untrusted code. Package installation and hosted AI calls require network access; editing and previously installed packages work offline.
+
+Assistant credentials are encrypted with AES-256-GCM using a wrapping key kept in the operating system's credential store. The key travels only over the private Rust-to-service input pipe; it is not exposed to the WebView or inherited by execution workers. If the credential store is unavailable, local providers can still be used without saving a key.
 
 Package lifecycle scripts are disabled so cancelling an installation can stop all its work. Packages requiring native compilation or postinstall setup need separate preparation.
 
 ## Installation
 
-To install the dependencies, run:
+For development, install Node.js 22 or newer, pnpm, a current stable Rust toolchain, and the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). On Windows these include Visual Studio C++ Build Tools and WebView2. Then install the JavaScript dependencies:
 
 ```sh
 pnpm install
@@ -43,7 +45,7 @@ pnpm install
 
 ## Development
 
-To start the application in development mode, run:
+To start the native Tauri application with Vite hot reload:
 
 ```sh
 pnpm dev
@@ -57,15 +59,18 @@ pnpm test
 pnpm build
 ```
 
-With `pnpm start` running, the Electron integration check can also exercise the real window, preload bridge, runner, package installation, and AI HTTP flow:
+The build prepares the Node service, execution worker, npm, TypeScript and the platform's Node executable under `src-tauri/resources/desktop` and `src-tauri/binaries`. Generated runtime files and Rust build outputs are ignored by Git. Builds must run on the same operating system and architecture as the bundled Node executable; cross-target runtime binaries are not substituted automatically.
+
+Check the Rust host after preparing the runtime:
 
 ```sh
-pnpm exec electron tests/electron-smoke.cjs
+pnpm build:desktop
+pnpm check:native
 ```
 
 ## Packaging
 
-To package the application, run:
+To build the native executable without generating installers:
 
 ```sh
 pnpm package
@@ -73,28 +78,30 @@ pnpm package
 
 ## Making
 
-To create distributable packages, run:
+To create Tauri installers for the current platform:
 
 ```sh
 pnpm make
 ```
 
-## Publishing
+Artifacts are written to `src-tauri/target/release`, with installers under `bundle`. Windows builds use the system WebView2 runtime. Publishing a release and configuring signed automatic updates are separate release tasks; the application's update menu opens the GitHub releases page.
 
-To publish the application, run:
+## Existing Electron data
 
-```sh
-pnpm publish
-```
+When an existing Electron workspace or settings file is detected in the legacy `js-blitz` configuration directory, the Node service reuses that directory. Installed npm packages and environment settings stay available. Previously encrypted Electron API keys may need to be entered again because the credential provider changed.
+
+Tauri uses a different WebView storage origin. Tabs, themes and snippet libraries stored in Electron's localStorage do not transfer automatically. Export personal snippets from the former application before switching; retain the old application data until any unsaved tabs have been copied. The migration does not delete the legacy browser data.
 
 ## Scripts
 
-- `start`: Start the Electron application
-- `dev`: Start the Electron application in development mode
-- `package`: Package the application
-- `make`: Create distributable packages
-- `publish`: Publish the application
-- `postversion`: Push changes and tags to the remote repository
+- `start` / `dev`: Start the native Tauri application with Vite
+- `build`: Prepare the bundled runtime and build the frontend
+- `build:desktop`: Prepare the service, worker, npm, TypeScript and Node sidecar
+- `dev:frontend`: Prepare the runtime and start Vite on port 1420
+- `check:native`: Check the Rust host
+- `package`: Build the native executable
+- `make`: Create distributable Tauri installers
+- `tauri`: Run the Tauri CLI directly
 
 ## License
 

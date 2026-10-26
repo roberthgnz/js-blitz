@@ -8,7 +8,7 @@ import {
   shallowRef,
   watch,
 } from 'vue'
-import { useMonaco } from '@guolao/vue-monaco-editor'
+import { useMonaco, VueMonacoEditor } from '@guolao/vue-monaco-editor'
 import type * as Monaco from 'monaco-editor'
 import { Pane, Splitpanes } from 'splitpanes'
 
@@ -16,6 +16,7 @@ import type { Output } from '../types'
 import DesktopTools from './components/DesktopTools.vue'
 import SnippetLibrary from './components/SnippetLibrary.vue'
 import TitleBar from './components/TitleBar.vue'
+import { desktopAPI } from './lib/desktop'
 import { configureEditor, refreshPackageTypes } from './lib/editor'
 import { savedSnippets } from './lib/snippets'
 import { getThemes } from './lib/themes'
@@ -101,9 +102,11 @@ function closeTab(id: string) {
   const index = tabs.value.findIndex((t) => t.id === id)
   if (index < 0) return
   if (running.value[id])
-    void window.electronAPI.cancelExecution(running.value[id])
-  tabs.value.splice(index, 1)
-  if (!tabs.value.length) tabs.value.push(createTab(1, ''))
+    void desktopAPI
+      .cancelExecution(running.value[id])
+      .catch((): void => undefined)
+  const remaining = tabs.value.filter((tab) => tab.id !== id)
+  tabs.value = remaining.length ? remaining : [createTab(1, '')]
   if (activeId.value === id)
     activeId.value = tabs.value[Math.min(index, tabs.value.length - 1)].id
   delete outputs.value[id]
@@ -190,7 +193,11 @@ async function mountEditor(
   )
   const markers = monaco.editor.onDidChangeMarkers(updateProblems)
   unsubscribers.push(() => markers.dispose())
-  await refreshPackageTypes(monaco)
+  try {
+    await refreshPackageTypes(monaco)
+  } catch (error) {
+    packageError.value = error instanceof Error ? error.message : String(error)
+  }
   updateProblems()
   if (live.value) void executeCode()
 }
@@ -215,13 +222,13 @@ async function executeCode() {
   const previousRun = running.value[id]
   const runId = crypto.randomUUID()
   running.value[id] = runId
-  if (previousRun) await window.electronAPI.cancelExecution(previousRun)
-  if (running.value[id] !== runId) return
-  outputs.value[id] = []
-  errors.value[id] = ''
   const start = performance.now()
   try {
-    const result = await window.electronAPI.executeCode({
+    if (previousRun) await desktopAPI.cancelExecution(previousRun)
+    if (running.value[id] !== runId) return
+    outputs.value[id] = []
+    errors.value[id] = ''
+    const result = await desktopAPI.executeCode({
       code: tab.code,
       language: tab.language,
       runId,
@@ -248,7 +255,13 @@ async function executeCode() {
 }
 async function stopCode() {
   const runId = running.value[activeId.value]
-  if (runId) await window.electronAPI.cancelExecution(runId)
+  if (!runId) return
+  try {
+    await desktopAPI.cancelExecution(runId)
+  } catch (error) {
+    errors.value[activeId.value] =
+      error instanceof Error ? error.message : String(error)
+  }
 }
 watch(
   () => [activeId.value, activeTab.value.code, activeTab.value.language],
@@ -270,14 +283,14 @@ function exportCode() {
   URL.revokeObjectURL(url)
 }
 async function loadPackages() {
-  packages.value = await window.electronAPI.listPackages()
+  packages.value = await desktopAPI.listPackages()
 }
 async function installPackage() {
   if (!packageName.value.trim() || packageBusy.value) return
   packageBusy.value = true
   packageError.value = ''
   try {
-    await window.electronAPI.installPackage(packageName.value.trim())
+    await desktopAPI.installPackage(packageName.value.trim())
     packageName.value = ''
     await loadPackages()
     if (monacoRef.value) await refreshPackageTypes(monacoRef.value)
@@ -305,15 +318,20 @@ function snippetInNewTab(value: string) {
   newTab()
   activeTab.value.code = value
 }
-function showSettings() {
-  window.electronAPI.showContextMenu()
+async function showSettings() {
+  try {
+    await desktopAPI.showContextMenu()
+  } catch (error) {
+    errors.value[activeId.value] =
+      error instanceof Error ? error.message : String(error)
+  }
 }
 onMounted(() => {
   unsubscribers.push(
-    window.electronAPI.on('set-theme', (name: string) => void setTheme(name))
+    desktopAPI.on('set-theme', (name: string) => void setTheme(name))
   )
   unsubscribers.push(
-    window.electronAPI.on(
+    desktopAPI.on(
       'execution-output',
       (event: { runId: string; output: Output }) => {
         const id = Object.keys(running.value).find(
@@ -332,7 +350,7 @@ onBeforeUnmount(() => {
   clearTimeout(liveTimer)
   unsubscribers.forEach((dispose) => dispose())
   Object.values(running.value).forEach(
-    (id) => void window.electronAPI.cancelExecution(id)
+    (id) => void desktopAPI.cancelExecution(id).catch((): void => undefined)
   )
 })
 </script>

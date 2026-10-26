@@ -22,7 +22,7 @@ import {
   ensurePackages,
   getPackages,
   packageRoot,
-} from '../electron/lib/packages'
+} from '../desktop/lib/packages'
 
 const tick = String.fromCharCode(96)
 

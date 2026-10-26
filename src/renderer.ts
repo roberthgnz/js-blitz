@@ -11,6 +11,7 @@ import './style.css'
 import 'floating-vue/dist/style.css'
 
 import App from './App.vue'
+import { initializeDesktopBridge } from './lib/desktop'
 import { configureEditor, disposeEditorTools } from './lib/editor'
 import TypeScriptWorker from './lib/typescript.worker?worker'
 
@@ -24,14 +25,26 @@ self.MonacoEnvironment = {
 
 configureEditor(monaco)
 
-const app = createApp(App)
+async function mountApp() {
+  await initializeDesktopBridge()
 
-app.directive('tooltip', vTooltip)
-app.component('VTooltip', Tooltip)
+  const app = createApp(App)
 
-app.use(VueMonacoEditorPlugin, { monaco })
+  app.directive('tooltip', vTooltip)
+  app.component('VTooltip', Tooltip)
 
-app.mount('#app')
+  app.use(VueMonacoEditorPlugin, { monaco })
+  app.mount('#app')
+}
+
+void mountApp().catch((error: unknown) => {
+  console.error('Unable to initialize the desktop bridge:', error)
+  const root = document.getElementById('app')
+  if (root)
+    root.textContent =
+      'JSBlitz could not connect to its desktop event listener. Please restart the desktop app. ' +
+      (error instanceof Error ? error.message : String(error))
+})
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => disposeEditorTools(monaco))

@@ -75,6 +75,12 @@ function bundledNodeTypes(): Plugin {
 
 export default defineConfig({
   base: './',
+  clearScreen: false,
+  server: {
+    host: '127.0.0.1',
+    port: 1420,
+    strictPort: true,
+  },
   plugins: [vue(), bundledNodeTypes()],
   worker: { format: 'iife' },
   build: { target: 'esnext' },

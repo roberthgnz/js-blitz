@@ -13,10 +13,19 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/electron/*": ["electron/*"],
+      "@/desktop/*": ["desktop/*"],
       "@/src/*": ["src/*"],
       "@/types/*": ["types/*"],
       "@/utils/*": ["utils/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".vite",
+    "temp",
+    "src-tauri/target",
+    "src-tauri/resources",
+    "tests/legacy"
+  ]
 }

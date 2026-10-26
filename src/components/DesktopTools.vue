@@ -6,9 +6,9 @@ import type {
   AssistantMessage,
   DesktopSettings,
   DesktopSettingsUpdate,
-  DesktopToolsBridge,
   EnvironmentVariable,
 } from '../../types/desktop'
+import { desktopAPI } from '../lib/desktop'
 
 const props = defineProps<{ code: string }>()
 const emit = defineEmits<{ (event: 'insert-code', code: string): void }>()
@@ -58,19 +58,6 @@ function uniqueId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${++sequence}`
 }
 
-function getBridge(): DesktopToolsBridge | null {
-  const bridge = window.electronAPI as unknown as
-    | Partial<DesktopToolsBridge>
-    | undefined
-  return bridge &&
-    typeof bridge.getDesktopSettings === 'function' &&
-    typeof bridge.saveDesktopSettings === 'function' &&
-    typeof bridge.askAssistant === 'function' &&
-    typeof bridge.cancelAssistant === 'function'
-    ? (bridge as DesktopToolsBridge)
-    : null
-}
-
 function cloneEnvironment(variables: EnvironmentVariable[]) {
   return variables.map((variable) => ({ ...variable }))
 }
@@ -92,15 +79,8 @@ function errorMessage(error: unknown, fallback: string) {
 async function loadSettings() {
   loading.value = true
   loadError.value = ''
-  const bridge = getBridge()
-  if (!bridge) {
-    loadError.value =
-      'Desktop tools are available in the desktop app. Open or restart the app to connect.'
-    loading.value = false
-    return
-  }
   try {
-    const settings = await bridge.getDesktopSettings()
+    const settings = await desktopAPI.getDesktopSettings()
     if (disposed) return
     saved.value = settings
     environmentDraft.value = cloneEnvironment(settings.environment)
@@ -298,8 +278,7 @@ function resetAssistant() {
 }
 
 async function saveSettings(section: Tab) {
-  const bridge = getBridge()
-  if (!bridge || !saved.value || formDisabled.value) return
+  if (!saved.value || formDisabled.value) return
   if (
     section === 'environment'
       ? environmentInvalid.value
@@ -333,7 +312,7 @@ async function saveSettings(section: Tab) {
   saving.value = section
   feedback.value = null
   try {
-    const response = await bridge.saveDesktopSettings(update)
+    const response = await desktopAPI.saveDesktopSettings(update)
     if (disposed) return
     if (response.success === false) {
       feedback.value = {
@@ -396,10 +375,8 @@ function handleTabKey(event: KeyboardEvent) {
 }
 
 async function askAssistant() {
-  const bridge = getBridge()
   const text = prompt.value.trim()
   if (
-    !bridge ||
     !text ||
     busy.value ||
     !assistantConfigured.value ||
@@ -422,7 +399,7 @@ async function askAssistant() {
   activeRequestId.value = requestId
   inFlightRequests.add(requestId)
   try {
-    const response = await bridge.askAssistant({
+    const response = await desktopAPI.askAssistant({
       requestId,
       prompt: text,
       code,
@@ -479,15 +456,14 @@ async function askAssistant() {
 }
 
 async function cancelAssistant() {
-  const bridge = getBridge()
   const requestId = activeRequestId.value
-  if (!bridge || !requestId || cancelling.value) return
+  if (!requestId || cancelling.value) return
   // Invalidate immediately so a late response cannot be added after cancellation.
   activeRequestId.value = null
   cancelling.value = true
   chatFeedback.value = { text: 'Cancelling the request…', tone: 'info' }
   try {
-    await bridge.cancelAssistant(requestId)
+    await desktopAPI.cancelAssistant(requestId)
     if (!disposed)
       chatFeedback.value = {
         text: 'Request cancelled. You can send another prompt.',
@@ -527,9 +503,8 @@ function applyCode(code: string, id: string) {
 onMounted(loadSettings)
 onBeforeUnmount(() => {
   disposed = true
-  const bridge = getBridge()
   for (const requestId of inFlightRequests) {
-    void bridge?.cancelAssistant(requestId).catch((): void => undefined)
+    void desktopAPI.cancelAssistant(requestId).catch((): void => undefined)
   }
 })
 </script>
