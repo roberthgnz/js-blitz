@@ -57,6 +57,11 @@ const config: ForgeConfig = {
           config: 'vite.preload.config.ts',
           target: 'preload',
         },
+        {
+          entry: 'electron/lib/execution-worker.ts',
+          config: 'vite.runner.config.ts',
+          target: 'main',
+        },
       ],
       renderer: [
         {

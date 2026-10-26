@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { randomUUID } from 'node:crypto'
 import path from 'path'
 import {
   app,
@@ -12,10 +13,22 @@ import started from 'electron-squirrel-startup'
 import si from 'systeminformation'
 import { updateElectronApp } from 'update-electron-app'
 
-import { WindowState } from '../types'
+import { WindowState, type ExecuteRequest } from '../types'
 import { THEMES } from '../utils/constants'
-import { executeCode, type ExecuteCodeRequest } from './lib/coderunner'
-import { getPackages } from './lib/packages'
+import {
+  askAssistant,
+  cancelAllAssistantRequests,
+  cancelAssistant,
+} from './lib/assistant'
+import { cancelExecution, configureRunner, executeCode } from './lib/coderunner'
+import { packageRoot } from './lib/packages'
+import {
+  getDesktopSettings,
+  getExecutionEnv,
+  initializeSettings,
+  saveDesktopSettings,
+} from './lib/settings'
+import { getTypeDefinitions } from './lib/type-definitions'
 
 if (started) {
   app.quit()
@@ -36,10 +49,18 @@ autoUpdater.setFeedURL({
   url: getFeedURL(),
 })
 
-const userDataPath = app.isPackaged
-  ? path.resolve(app.getPath('userData'))
-  : path.resolve(__dirname, '..', '..', 'temp')
+const userDataPath = path.resolve(app.getPath('userData'))
 const stateFilePath = path.join(userDataPath, 'window-state.json')
+const workspacePath = path.join(userDataPath, 'workspace')
+fs.mkdirSync(userDataPath, { recursive: true })
+const runsByOwner = new Map<number, Set<string>>()
+const servicesReady = app.whenReady().then(async () => {
+  await initializeSettings(userDataPath)
+  configureRunner({
+    workspacePath,
+    workerPath: path.join(__dirname, 'execution-worker.js'),
+  })
+})
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string
 declare const MAIN_WINDOW_VITE_NAME: string
@@ -214,6 +235,12 @@ const createWindow = async () => {
   })
 
   mainWindow.on('resize', () => saveWindowState(mainWindow))
+  const owner = mainWindow.webContents.id
+  mainWindow.webContents.once('destroyed', () => {
+    for (const run of runsByOwner.get(owner) || []) cancelExecution(run)
+    runsByOwner.delete(owner)
+    cancelAllAssistantRequests(String(owner))
+  })
   mainWindow.on('moved', () => saveWindowState(mainWindow))
 
   mainWindow.on('maximize', () => {
@@ -252,24 +279,103 @@ const createWindow = async () => {
   }
 }
 
-ipcMain.handle('execute-code', async (event, code) => {
+ipcMain.handle('execute-code', async (event, request: ExecuteRequest) => {
   const webContents = event.sender
+  const runId = String(webContents.id) + ':' + request?.runId
   try {
-    const packages = getPackages(code)
-    const request: ExecuteCodeRequest = { code, packages }
-    return await executeCode(request, ({ status }) => {
-      webContents.send(status)
-    })
+    await servicesReady
+    if (
+      !request ||
+      typeof request.code !== 'string' ||
+      typeof request.runId !== 'string' ||
+      request.code.length > 5 * 1024 * 1024
+    )
+      throw new Error('Invalid execution request.')
+    const runs = runsByOwner.get(webContents.id) || new Set<string>()
+    runsByOwner.set(webContents.id, runs)
+    runs.add(runId)
+    return await executeCode(
+      { ...request, runId, env: getExecutionEnv() },
+      ({ status }) => {
+        if (!webContents.isDestroyed()) webContents.send(status)
+      },
+      (output) => {
+        if (!webContents.isDestroyed())
+          webContents.send('execution-output', { runId: request.runId, output })
+      }
+    )
   } catch (error) {
-    webContents.send('code-execution-finished')
-    webContents.send('package-installation-finished')
     return {
       success: false,
-      output: '',
+      output: [],
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     }
+  } finally {
+    runsByOwner.get(webContents.id)?.delete(runId)
   }
 })
+
+ipcMain.handle('cancel-execution', (event, runId: string) =>
+  cancelExecution(String(event.sender.id) + ':' + runId)
+)
+ipcMain.handle('get-type-definitions', async () => {
+  await servicesReady
+  return getTypeDefinitions(workspacePath)
+})
+ipcMain.handle('list-packages', async () => {
+  await servicesReady
+  const manifestFile = path.join(workspacePath, 'package.json')
+  if (!fs.existsSync(manifestFile)) return []
+  const manifest = JSON.parse(await fs.promises.readFile(manifestFile, 'utf8'))
+  return Promise.all(
+    Object.keys(manifest.dependencies || {}).map(async (name) => {
+      const installed = JSON.parse(
+        await fs.promises.readFile(
+          path.join(workspacePath, 'node_modules', name, 'package.json'),
+          'utf8'
+        )
+      )
+      return { name, version: installed.version }
+    })
+  )
+})
+ipcMain.handle('install-package', async (event, name: string) => {
+  await servicesReady
+  if (typeof name !== 'string' || name.length > 256 || !packageRoot(name))
+    throw new Error('Enter a registry package name, optionally with a version.')
+  const runId = String(event.sender.id) + ':install:' + randomUUID()
+  const runs = runsByOwner.get(event.sender.id) || new Set<string>()
+  runsByOwner.set(event.sender.id, runs)
+  runs.add(runId)
+  try {
+    const result = await executeCode({
+      code: '',
+      packages: [name],
+      runId,
+      timeoutMs: 120000,
+      env: getExecutionEnv(),
+    })
+    if (!result.success)
+      throw new Error(result.error || 'Package installation failed.')
+  } finally {
+    runs.delete(runId)
+  }
+})
+ipcMain.handle('get-desktop-settings', async () => {
+  await servicesReady
+  return getDesktopSettings()
+})
+ipcMain.handle('save-desktop-settings', async (_event, settings) => {
+  await servicesReady
+  return saveDesktopSettings(settings)
+})
+ipcMain.handle('ask-assistant', async (event, request) => {
+  await servicesReady
+  return askAssistant(request, String(event.sender.id))
+})
+ipcMain.handle('cancel-assistant', (event, requestId: string) =>
+  cancelAssistant(requestId, String(event.sender.id))
+)
 
 ipcMain.on('minimize-window', () => {
   BrowserWindow.getFocusedWindow()?.minimize()
@@ -293,8 +399,9 @@ ipcMain.on('show-context-menu', (event) => {
   menu.popup({ window: BrowserWindow.fromWebContents(event.sender) })
 })
 
-app.on('ready', () => {
-  createWindow()
+app.on('ready', async () => {
+  await servicesReady
+  await createWindow()
 })
 
 app.on('window-all-closed', () => {
