@@ -16,6 +16,7 @@ interface RegisteredLibrary {
 }
 
 interface EditorTools {
+  environment: 'node' | 'browser'
   providers: Monaco.IDisposable[]
   bundledLibraries: Map<string, RegisteredLibrary>
   packageLibraries: Map<string, RegisteredLibrary>
@@ -106,24 +107,47 @@ function languageDefaults(monaco: MonacoInstance) {
 
 function registerLibrary(
   monaco: MonacoInstance,
-  definition: TypeDefinition
+  definition: TypeDefinition,
+  active: boolean
 ): RegisteredLibrary {
   return {
     content: definition.content,
-    disposables: languageDefaults(monaco).map((defaults) =>
-      defaults.addExtraLib(definition.content, definition.path)
-    ),
+    disposables: active
+      ? languageDefaults(monaco).map((defaults) =>
+          defaults.addExtraLib(definition.content, definition.path)
+        )
+      : [],
   }
 }
 
 function disposeLibrary(library: RegisteredLibrary) {
   library.disposables.forEach((disposable) => disposable.dispose())
+  library.disposables = []
+}
+
+function environmentCompilerOptions(
+  environment: 'node' | 'browser'
+): Monaco.languages.typescript.CompilerOptions {
+  return environment === 'browser'
+    ? {
+        customConditions: ['browser'],
+        lib: ['lib.esnext.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'],
+        typeRoots: [],
+        types: [],
+      }
+    : {
+        customConditions: ['node'],
+        lib: ['lib.esnext.d.ts'],
+        typeRoots: ['file:///workspace/node_modules/@types'],
+        types: ['node'],
+      }
 }
 
 /** Configure once per Monaco instance; safe to call from every editor mount. */
 export function configureEditor(monaco: MonacoInstance): void {
   if (configuredEditors.has(monaco)) return
 
+  const environment = isDesktopAvailable() ? 'node' : 'browser'
   const typescript = monaco.languages.typescript
   const compilerOptions: Monaco.languages.typescript.CompilerOptions = {
     allowJs: true,
@@ -132,10 +156,8 @@ export function configureEditor(monaco: MonacoInstance): void {
     allowUmdGlobalAccess: true,
     baseUrl: 'file:///workspace',
     checkJs: true,
-    customConditions: ['node'],
     esModuleInterop: true,
     forceConsistentCasingInFileNames: true,
-    lib: ['lib.esnext.d.ts'],
     module: typescript.ModuleKind.ESNext,
     // The embedded TS 5.4 supports Bundler; Monaco's public enum is older.
     moduleResolution: 100 as Monaco.languages.typescript.ModuleResolutionKind,
@@ -148,8 +170,7 @@ export function configureEditor(monaco: MonacoInstance): void {
     skipLibCheck: true,
     strict: true,
     target: typescript.ScriptTarget.ESNext,
-    typeRoots: ['file:///workspace/node_modules/@types'],
-    types: ['node'],
+    ...environmentCompilerOptions(environment),
   }
 
   for (const defaults of languageDefaults(monaco)) {
@@ -178,6 +199,7 @@ export function configureEditor(monaco: MonacoInstance): void {
   }
 
   const tools: EditorTools = {
+    environment,
     providers: [],
     bundledLibraries: new Map(),
     packageLibraries: new Map(),
@@ -188,7 +210,7 @@ export function configureEditor(monaco: MonacoInstance): void {
   for (const definition of nodeDefinitions) {
     tools.bundledLibraries.set(
       definition.path,
-      registerLibrary(monaco, definition)
+      registerLibrary(monaco, definition, environment === 'node')
     )
   }
 
@@ -215,6 +237,37 @@ export function configureEditor(monaco: MonacoInstance): void {
         },
       })
     )
+  }
+}
+
+/** Monaco shares JS/TS defaults, so apply the active tab's execution environment. */
+export function setEditorEnvironment(
+  monaco: MonacoInstance,
+  environment: 'node' | 'browser'
+): void {
+  configureEditor(monaco)
+  const tools = configuredEditors.get(monaco)!
+  if (tools.environment === environment) return
+  tools.environment = environment
+
+  // Extra libs are root files: types: [] alone cannot hide their Node globals.
+  // Retain the declarations in memory so switching back needs no bridge request.
+  for (const libraries of [tools.bundledLibraries, tools.packageLibraries]) {
+    for (const [path, library] of libraries) {
+      if (environment === 'browser') {
+        disposeLibrary(library)
+      } else {
+        library.disposables = languageDefaults(monaco).map((defaults) =>
+          defaults.addExtraLib(library.content, path)
+        )
+      }
+    }
+  }
+  for (const defaults of languageDefaults(monaco)) {
+    defaults.setCompilerOptions({
+      ...defaults.getCompilerOptions(),
+      ...environmentCompilerOptions(environment),
+    })
   }
 }
 
@@ -248,7 +301,7 @@ export function normalizeTypeDefinitionPath(filePath: string): string | null {
   return new URL(encodedPath, 'file:///').href
 }
 
-/** Reload declarations AND package.json files after installing/removing packages. */
+/** Reload Node package declarations/manifests; keep them inactive in Browser. */
 export async function refreshPackageTypes(
   monaco: MonacoInstance
 ): Promise<number> {
@@ -285,7 +338,7 @@ export async function refreshPackageTypes(
     if (!tools.packageLibraries.has(path)) {
       tools.packageLibraries.set(
         path,
-        registerLibrary(monaco, { path, content })
+        registerLibrary(monaco, { path, content }, tools.environment === 'node')
       )
     }
   }

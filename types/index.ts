@@ -1,5 +1,7 @@
 import type { DesktopToolsBridge } from './desktop'
 
+export type ExecutionEnvironment = 'node' | 'browser'
+
 export type OutputType = 'log' | 'info' | 'warn' | 'error' | 'result'
 
 export type Output = {

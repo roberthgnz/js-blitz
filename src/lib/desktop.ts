@@ -19,7 +19,7 @@ const subscriptions = new Map<DesktopEvent, Set<Subscriber>>()
 let initialization: Promise<void> | undefined
 
 export const DESKTOP_UNAVAILABLE_MESSAGE =
-  'Native desktop features are unavailable in this browser. Open JSBlitz in the desktop app to run code, manage packages, or use desktop settings and AI.'
+  'Native desktop features are unavailable in this browser. Open JSBlitz in the desktop app for Node.js execution, npm installation, environment settings and AI. Use the Browser environment to run web code here.'
 
 export function isDesktopAvailable(): boolean {
   return isTauri()

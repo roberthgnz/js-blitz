@@ -19,6 +19,16 @@ JSBlitz is an alternative to RunJS that allows you to run JavaScript code in a f
 
 ## Desktop workflow
 
+Each tab can run in **Node.js** or **Browser**, selected in the status bar. Node.js uses the bundled runtime, native npm packages and desktop environment variables. Browser runs in an isolated preview with real `window`, `document`, DOM and canvas APIs. Use **Preview** to see rendered content and **Console** to inspect values and errors. Switching environments also updates autocomplete, hover information and type checking.
+
+To open the playground directly in a web browser:
+
+```sh
+pnpm dev:web
+```
+
+Open `http://127.0.0.1:1420`. New tabs use Browser when the native desktop host is unavailable. A static browser build is available with `pnpm build:frontend`; serve the generated `dist` directory over HTTP. Native Node.js execution, npm installation, desktop environment settings and AI configuration require the desktop application.
+
 Use **Run** or **Ctrl/Cmd+Enter** to execute the active tab. **Live** evaluates changes after a short delay; **Stop** terminates the current run. Choose JavaScript or TypeScript and a 10, 30, or 60 second execution limit in the toolbar. Type errors appear in the editor without blocking execution.
 
 **Packages** installs registry packages such as `lodash`, `nanoid@5`, or `@scope/package`. Missing literal imports and requires also install automatically. Install `@types/package-name` when a package does not ship its own declarations. Packages are shared by tabs and cached in the application's writable workspace.

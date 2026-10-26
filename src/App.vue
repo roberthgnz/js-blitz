@@ -12,7 +12,8 @@ import { useMonaco, VueMonacoEditor } from '@guolao/vue-monaco-editor'
 import type * as Monaco from 'monaco-editor'
 import { Pane, Splitpanes } from 'splitpanes'
 
-import type { Output } from '../types'
+import type { ExecutionEnvironment, Output } from '../types'
+import BrowserPreview from './components/BrowserPreview.vue'
 import CommandPalette, {
   type PaletteCommand,
 } from './components/CommandPalette.vue'
@@ -21,8 +22,13 @@ import Icon, { type IconName } from './components/Icon.vue'
 import PackagesPanel from './components/PackagesPanel.vue'
 import SnippetLibrary from './components/SnippetLibrary.vue'
 import TitleBar from './components/TitleBar.vue'
-import { desktopAPI } from './lib/desktop'
-import { configureEditor, refreshPackageTypes } from './lib/editor'
+import { createBrowserExecution } from './lib/browser-runner'
+import { desktopAPI, isDesktopAvailable } from './lib/desktop'
+import {
+  configureEditor,
+  refreshPackageTypes,
+  setEditorEnvironment,
+} from './lib/editor'
 import { savedSnippets } from './lib/snippets'
 import { getThemes, getUiPalette, type UiPalette } from './lib/themes'
 import { createTab, loadTabs } from './lib/workspace'
@@ -37,7 +43,11 @@ const PANELS: Array<{ id: Panel; label: string; icon: IconName }> = [
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 const MOD = isMac ? '⌘' : 'Ctrl'
 
-const tabs = ref(loadTabs(localStorage))
+const nativeAvailable = isDesktopAvailable()
+const defaultEnvironment: ExecutionEnvironment = nativeAvailable
+  ? 'node'
+  : 'browser'
+const tabs = ref(loadTabs(localStorage, defaultEnvironment))
 const savedActive = localStorage.getItem('js-blitz-active-tab')
 const activeId = ref(
   tabs.value.some((t) => t.id === savedActive) ? savedActive! : tabs.value[0].id
@@ -66,6 +76,23 @@ const running = ref<Record<string, string>>({})
 const duration = ref<Record<string, number>>({})
 const output = computed(() => outputs.value[activeId.value] || [])
 const isRunning = computed(() => Boolean(running.value[activeId.value]))
+const browserExecutions = shallowRef<
+  Record<string, ReturnType<typeof createBrowserExecution>>
+>({})
+const browserRunIds = new Map<string, string>()
+const outputViews = ref<Record<string, 'console' | 'preview'>>({})
+const activeOutputView = computed({
+  get: () =>
+    activeTab.value.environment === 'browser'
+      ? outputViews.value[activeId.value] || 'preview'
+      : 'console',
+  set: (value) => {
+    outputViews.value[activeId.value] = value
+  },
+})
+const canStop = computed(
+  () => isRunning.value || Boolean(browserExecutions.value[activeId.value])
+)
 const packages = ref<Array<{ name: string; version: string }>>([])
 const packageBusy = ref(false)
 const packageError = ref('')
@@ -173,24 +200,24 @@ function cycleTab(step: number) {
   switchTab(tabs.value[next].id)
 }
 function newTab() {
-  const tab = createTab(tabs.value.length + 1, '')
+  const tab = createTab(tabs.value.length + 1, '', activeTab.value.environment)
   tabs.value.push(tab)
   switchTab(tab.id)
 }
 function closeTab(id: string) {
   const index = tabs.value.findIndex((t) => t.id === id)
   if (index < 0) return
-  if (running.value[id])
-    void desktopAPI
-      .cancelExecution(running.value[id])
-      .catch((): void => undefined)
+  void cancelTabExecution(id).catch((): void => undefined)
   const remaining = tabs.value.filter((tab) => tab.id !== id)
-  tabs.value = remaining.length ? remaining : [createTab(1, '')]
+  tabs.value = remaining.length
+    ? remaining
+    : [createTab(1, '', defaultEnvironment)]
   if (activeId.value === id)
     activeId.value = tabs.value[Math.min(index, tabs.value.length - 1)].id
   delete outputs.value[id]
   delete errors.value[id]
   delete running.value[id]
+  delete outputViews.value[id]
   nextTick(() => {
     const monaco = monacoRef.value
     if (!monaco) return
@@ -262,6 +289,14 @@ function updateProblems() {
       ? monacoRef.value.editor.getModelMarkers({ resource: model.uri })
       : []
 }
+watch(
+  () => [activeId.value, activeTab.value.environment],
+  () => {
+    if (monacoRef.value)
+      setEditorEnvironment(monacoRef.value, activeTab.value.environment)
+    nextTick(updateProblems)
+  }
+)
 async function mountEditor(
   instance: Monaco.editor.IStandaloneCodeEditor,
   monaco: typeof Monaco
@@ -279,6 +314,7 @@ async function mountEditor(
     unsubscribers.push(() => resize.disconnect())
   }
   configureEditor(monaco)
+  setEditorEnvironment(monaco, activeTab.value.environment)
   for (const language of ['javascript', 'typescript']) {
     const provider = monaco.languages.registerCompletionItemProvider(language, {
       provideCompletionItems(model, position) {
@@ -361,24 +397,47 @@ async function executeCode() {
   running.value[id] = runId
   const start = performance.now()
   try {
-    if (previousRun) await desktopAPI.cancelExecution(previousRun)
+    if (previousRun || browserExecutions.value[id])
+      await cancelTabExecution(id, previousRun)
     if (running.value[id] !== runId) return
     outputs.value[id] = []
     errors.value[id] = ''
-    const result = await desktopAPI.executeCode({
+    const request = {
       code: tab.code,
       language: tab.language,
       runId,
       timeoutMs: timeoutMs.value,
-    })
+    }
+    let result
+    if (tab.environment === 'browser') {
+      browserRunIds.set(id, runId)
+      const execution = createBrowserExecution(request, (entry) => {
+        if (disposed || browserRunIds.get(id) !== runId) return
+        ;(outputs.value[id] ||= []).push(entry)
+        if (entry.type === 'error') outputViews.value[id] = 'console'
+      })
+      browserExecutions.value = { ...browserExecutions.value, [id]: execution }
+      await nextTick()
+      result = await execution.completion
+    } else {
+      if (!nativeAvailable)
+        throw new Error(
+          'Node.js execution requires the desktop app. Select Browser to run web code here.'
+        )
+      result = await desktopAPI.executeCode(request)
+    }
     if (disposed || running.value[id] !== runId) return
     outputs.value[id] = result.output
-    if (!result.success)
+    if (!result.success) {
       errors.value[id] = result.error || 'Code execution failed.'
+      outputViews.value[id] = 'console'
+    }
     duration.value[id] = Math.round(performance.now() - start)
     try {
-      await loadPackages()
-      if (monacoRef.value) await refreshPackageTypes(monacoRef.value)
+      if (tab.environment === 'node') {
+        await loadPackages()
+        if (monacoRef.value) await refreshPackageTypes(monacoRef.value)
+      }
     } catch (error) {
       packageError.value =
         error instanceof Error ? error.message : String(error)
@@ -390,18 +449,48 @@ async function executeCode() {
     if (running.value[id] === runId) delete running.value[id]
   }
 }
-async function stopCode() {
-  const runId = running.value[activeId.value]
-  if (!runId) return
-  try {
+async function cancelTabExecution(id: string, runId = running.value[id]) {
+  const browser = browserExecutions.value[id]
+  if (browser) {
+    browserRunIds.delete(id)
+    browser.cancel()
+    browser.dispose()
+    const remaining = { ...browserExecutions.value }
+    delete remaining[id]
+    browserExecutions.value = remaining
+  } else if (runId && nativeAvailable) {
     await desktopAPI.cancelExecution(runId)
+  }
+}
+async function setExecutionEnvironment(environment: ExecutionEnvironment) {
+  if (!['node', 'browser'].includes(environment)) return
+  const tab = activeTab.value
+  if (tab.environment === environment) return
+  const runId = running.value[tab.id]
+  delete running.value[tab.id]
+  await cancelTabExecution(tab.id, runId)
+  tab.environment = environment
+  outputs.value[tab.id] = []
+  errors.value[tab.id] = ''
+  delete duration.value[tab.id]
+  delete outputViews.value[tab.id]
+}
+async function stopCode() {
+  const id = activeId.value
+  try {
+    await cancelTabExecution(id)
   } catch (error) {
     errors.value[activeId.value] =
       error instanceof Error ? error.message : String(error)
   }
 }
 watch(
-  () => [activeId.value, activeTab.value.code, activeTab.value.language],
+  () => [
+    activeId.value,
+    activeTab.value.code,
+    activeTab.value.language,
+    activeTab.value.environment,
+  ],
   (value, previous) => {
     clearTimeout(liveTimer)
     if (live.value && previous && value[0] === previous[0])
@@ -420,6 +509,7 @@ function exportCode() {
   URL.revokeObjectURL(url)
 }
 async function loadPackages() {
+  if (!nativeAvailable) return
   packages.value = await desktopAPI.listPackages()
 }
 async function installPackage(name: string) {
@@ -456,6 +546,10 @@ function snippetInNewTab(value: string) {
   activeTab.value.code = value
 }
 async function showMoreMenu() {
+  if (!nativeAvailable) {
+    paletteOpen.value = true
+    return
+  }
   try {
     await desktopAPI.showContextMenu()
   } catch (error) {
@@ -521,7 +615,7 @@ const commands = computed<PaletteCommand[]>(() => [
     group: 'Run',
     label: 'Stop execution',
     icon: 'stop',
-    disabled: !isRunning.value,
+    disabled: !canStop.value,
     run: () => void stopCode(),
   },
   {
@@ -607,6 +701,20 @@ const commands = computed<PaletteCommand[]>(() => [
         activeTab.value.language === 'typescript'
           ? 'javascript'
           : 'typescript'),
+  },
+  {
+    id: 'environment',
+    group: 'Tab',
+    label:
+      activeTab.value.environment === 'browser'
+        ? 'Switch to Node.js'
+        : 'Switch to Browser',
+    icon: 'braces',
+    disabled: !nativeAvailable && activeTab.value.environment === 'browser',
+    run: () =>
+      void setExecutionEnvironment(
+        activeTab.value.environment === 'node' ? 'browser' : 'node'
+      ),
   },
   {
     id: 'format',
@@ -752,9 +860,8 @@ onBeforeUnmount(() => {
   disposed = true
   clearTimeout(liveTimer)
   unsubscribers.forEach((dispose) => dispose())
-  Object.values(running.value).forEach(
-    (id) => void desktopAPI.cancelExecution(id).catch((): void => undefined)
-  )
+  for (const tab of tabs.value)
+    void cancelTabExecution(tab.id).catch((): void => undefined)
 })
 
 const OUTPUT_ICONS: Record<Output['type'], IconName> = {
@@ -808,7 +915,7 @@ const OUTPUT_ICONS: Record<Output['type'], IconName> = {
           </button>
           <button
             class="stop-button"
-            :disabled="!isRunning"
+            :disabled="!canStop"
             title="Stop execution"
             aria-label="Stop execution"
             @click="stopCode"
@@ -919,8 +1026,15 @@ const OUTPUT_ICONS: Record<Output['type'], IconName> = {
           </button>
         </header>
         <div class="sidebar-body">
+          <p
+            v-if="panel === 'packages' && !nativeAvailable"
+            class="browser-native-hint"
+          >
+            Native npm installation is available in the desktop app. Browser
+            code can use web module URL imports.
+          </p>
           <PackagesPanel
-            v-show="panel === 'packages'"
+            v-show="panel === 'packages' && nativeAvailable"
             ref="packagesPanel"
             :packages="packages"
             :busy="packageBusy"
@@ -1081,7 +1195,25 @@ const OUTPUT_ICONS: Record<Output['type'], IconName> = {
             <section class="output-pane" aria-label="Console">
               <div class="pane-header">
                 <Icon name="terminal" :size="15" />
-                <span class="pane-title">Console</span>
+                <button
+                  v-if="activeTab.environment === 'browser'"
+                  class="output-view-button"
+                  :class="{ selected: activeOutputView === 'console' }"
+                  @click="activeOutputView = 'console'"
+                  :aria-pressed="activeOutputView === 'console'"
+                >
+                  Console
+                </button>
+                <span v-else class="pane-title">Console</span>
+                <button
+                  v-if="activeTab.environment === 'browser'"
+                  class="output-view-button"
+                  :class="{ selected: activeOutputView === 'preview' }"
+                  @click="activeOutputView = 'preview'"
+                  :aria-pressed="activeOutputView === 'preview'"
+                >
+                  Preview
+                </button>
                 <span v-if="output.length" class="count">{{
                   output.length
                 }}</span>
@@ -1105,7 +1237,22 @@ const OUTPUT_ICONS: Record<Output['type'], IconName> = {
                 </button>
               </div>
               <div v-if="isRunning" class="progress" aria-hidden="true"></div>
-              <div class="console" role="log" aria-label="Execution output">
+              <BrowserPreview
+                v-for="tab in tabs"
+                v-show="
+                  tab.id === activeId &&
+                  activeTab.environment === 'browser' &&
+                  activeOutputView === 'preview'
+                "
+                :key="tab.id"
+                :execution="browserExecutions[tab.id]"
+              />
+              <div
+                v-show="activeOutputView === 'console'"
+                class="console"
+                role="log"
+                aria-label="Execution output"
+              >
                 <div
                   v-if="!output.length && !errors[activeId]"
                   class="console-empty"
@@ -1209,7 +1356,20 @@ const OUTPUT_ICONS: Record<Output['type'], IconName> = {
           <option value="javascript">JavaScript</option>
         </select>
       </label>
-      <span class="status-item">Node.js</span>
+      <label class="status-item status-button">
+        <select
+          :value="activeTab.environment"
+          aria-label="Execution environment"
+          @change="
+            setExecutionEnvironment(
+              ($event.target as HTMLSelectElement).value as ExecutionEnvironment
+            )
+          "
+        >
+          <option value="node" :disabled="!nativeAvailable">Node.js</option>
+          <option value="browser">Browser</option>
+        </select>
+      </label>
     </footer>
 
     <CommandPalette
@@ -1221,6 +1381,22 @@ const OUTPUT_ICONS: Record<Output['type'], IconName> = {
 </template>
 
 <style>
+.output-view-button {
+  padding: 5px 9px;
+  border-radius: 5px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.output-view-button.selected {
+  background: var(--ui-active);
+  color: var(--ui-fg);
+}
+.browser-native-hint {
+  padding: 16px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
 .app-shell {
   display: flex;
   flex-direction: column;

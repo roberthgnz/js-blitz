@@ -13,6 +13,7 @@
     "build:frontend": "vite build --config vite.renderer.config.ts",
     "build:desktop": "node scripts/prepare-desktop.mjs",
     "dev:frontend": "pnpm build:desktop && vite --config vite.renderer.config.ts",
+    "dev:web": "vite --config vite.renderer.config.ts",
     "start": "tauri dev",
     "dev": "tauri dev",
     "tauri": "tauri",
